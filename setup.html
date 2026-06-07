@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>建立測驗時段</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+  <button id="setupBtn">建立所有測驗時段</button>
+  <pre id="log"></pre>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
+    import {
+      getFirestore,
+      doc,
+      writeBatch
+    } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDY2SAXwWPxgFWaUHU7h1ARjwtgo16G2Yo",
+      authDomain: "emstest-e3ec1.firebaseapp.com",
+      projectId: "emstest-e3ec1",
+      storageBucket: "emstest-e3ec1.firebasestorage.app",
+      messagingSenderId: "887383383886",
+      appId: "1:887383383886:web:452e3a1e8f756119f7c81f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const dates = [
+      { id: "2026-07-01", label: "7月1日" },
+      { id: "2026-07-11", label: "7月11日" },
+      { id: "2026-07-20", label: "7月20日" },
+      { id: "2026-07-21", label: "7月21日" }
+    ];
+
+    function buildTimes(start, end) {
+      const result = [];
+      let current = toMinutes(start);
+      const endMinutes = toMinutes(end);
+
+      while (current < endMinutes) {
+        result.push(toTime(current));
+        current += 15;
+      }
+
+      return result;
+    }
+
+    function toMinutes(time) {
+      const [hour, minute] = time.split(":").map(Number);
+      return hour * 60 + minute;
+    }
+
+    function toTime(minutes) {
+      const hour = String(Math.floor(minutes / 60)).padStart(2, "0");
+      const minute = String(minutes % 60).padStart(2, "0");
+      return `${hour}:${minute}`;
+    }
+
+    document.getElementById("setupBtn").addEventListener("click", async () => {
+      const log = document.getElementById("log");
+      const batch = writeBatch(db);
+      let count = 0;
+
+      dates.forEach(date => {
+        buildTimes("09:00", "11:30").forEach(time => {
+          const slotId = `${date.id}_${time}`;
+          batch.set(doc(db, "slots", slotId), {
+            slotId,
+            dateId: date.id,
+            dateLabel: date.label,
+            session: "上午",
+            time,
+            status: "可報名",
+            name1: "",
+            name2: "",
+            bookedAt: null
+          });
+          count++;
+        });
+
+        buildTimes("13:00", "16:00").forEach(time => {
+          const slotId = `${date.id}_${time}`;
+          batch.set(doc(db, "slots", slotId), {
+            slotId,
+            dateId: date.id,
+            dateLabel: date.label,
+            session: "下午",
+            time,
+            status: "可報名",
+            name1: "",
+            name2: "",
+            bookedAt: null
+          });
+          count++;
+        });
+      });
+
+      await batch.commit();
+      log.textContent = `完成，已建立 ${count} 個時段。`;
+    });
+  </script>
+</body>
+</html>
