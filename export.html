@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>匯出報名資料</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: Arial, "Noto Sans TC", sans-serif;
+      padding: 24px;
+      background: #f4f0e3;
+      color: #111;
+    }
+
+    button {
+      width: 100%;
+      max-width: 360px;
+      min-height: 52px;
+      border: 0;
+      border-radius: 8px;
+      background: #111;
+      color: #eadca7;
+      font-size: 18px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .msg {
+      margin-top: 16px;
+      font-weight: 800;
+    }
+  </style>
+</head>
+<body>
+  <h1>匯出報名資料</h1>
+  <button id="exportBtn">下載 CSV</button>
+  <div id="message" class="msg"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
+    import {
+      getFirestore,
+      collection,
+      getDocs
+    } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDY2SAXwWPxgFWaUHU7h1ARjwtgo16G2Yo",
+      authDomain: "emstest-e3ec1.firebaseapp.com",
+      projectId: "emstest-e3ec1",
+      storageBucket: "emstest-e3ec1.firebasestorage.app",
+      messagingSenderId: "887383383886",
+      appId: "1:887383383886:web:452e3a1e8f756119f7c81f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    document.getElementById("exportBtn").addEventListener("click", exportCsv);
+
+    async function exportCsv() {
+      const message = document.getElementById("message");
+      message.textContent = "資料讀取中...";
+
+      const snapshot = await getDocs(collection(db, "slots"));
+      const rows = snapshot.docs
+        .map(doc => doc.data())
+        .sort((a, b) => {
+          if (a.dateId !== b.dateId) return a.dateId.localeCompare(b.dateId);
+          return a.time.localeCompare(b.time);
+        });
+
+      const headers = [
+        "時段ID",
+        "測驗日期",
+        "梯次",
+        "測驗時間",
+        "狀態",
+        "受測人員姓名1",
+        "受測人員姓名2",
+        "報名時間"
+      ];
+
+      const csvRows = [
+        headers,
+        ...rows.map(row => [
+          row.slotId || "",
+          row.dateLabel || "",
+          row.session || "",
+          row.time || "",
+          row.status || "",
+          row.name1 || "",
+          row.name2 || "",
+          formatDate(row.bookedAt)
+        ])
+      ];
+
+      const csv = csvRows
+        .map(row => row.map(escapeCsv).join(","))
+        .join("\n");
+
+      const blob = new Blob(["\uFEFF" + csv], {
+        type: "text/csv;charset=utf-8;"
+      });
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "第四大隊救護技術普測報名資料.csv";
+      link.click();
+      URL.revokeObjectURL(url);
+
+      message.textContent = "CSV 已下載。";
+    }
+
+    function escapeCsv(value) {
+      const text = String(value ?? "");
+      return `"${text.replaceAll('"', '""')}"`;
+    }
+
+    function formatDate(value) {
+      if (!value || !value.toDate) return "";
+      const date = value.toDate();
+
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, "0");
+      const dd = String(date.getDate()).padStart(2, "0");
+      const hh = String(date.getHours()).padStart(2, "0");
+      const min = String(date.getMinutes()).padStart(2, "0");
+      const ss = String(date.getSeconds()).padStart(2, "0");
+
+      return `${yyyy}/${mm}/${dd} ${hh}:${min}:${ss}`;
+    }
+  </script>
+</body>
+</html>
