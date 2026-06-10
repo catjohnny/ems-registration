@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
-  <title>??????????????</title>
+  <title>&#31532;&#22235;&#22823;&#38538;&#25937;&#35703;&#25216;&#34899;&#26222;&#28204;&#22577;&#21517;&#31995;&#32113;</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     :root { --black:#111; --yellow:#c8b36a; --yellow-soft:#eadca7; --paper:#f3efe2; --card:#fffaf0; --line:#d8c98d; --muted:#777062; --booked:#d9d3bd; --danger:#b42318; --ok:#137a3a; }
@@ -24,8 +24,8 @@
     .chosen { width:100%; min-height:52px; border:0; border-radius:8px; padding:12px; background:var(--black); color:var(--yellow-soft); font-size:16px; font-weight:900; }
     .session-head { display:flex; justify-content:space-between; align-items:center; margin:18px 0 10px; padding-bottom:8px; border-bottom:1px solid var(--line); font-size:17px; font-weight:900; }
     .session-head span { color:var(--muted); font-size:13px; font-weight:800; }
-    .slot-btn { min-height:70px; padding:10px 6px; font-size:18px; }
-    .slot-btn small { display:block; margin-top:4px; color:#8f7b35; font-size:13px; }
+    .slot-btn { min-height:76px; padding:10px 6px; font-size:18px; }
+    .slot-btn small { display:block; margin-top:4px; color:#8f7b35; font-size:13px; line-height:1.25; overflow-wrap:anywhere; }
     .slot-btn.active { background:var(--black); color:white; border-color:var(--black); box-shadow:0 0 0 3px var(--yellow); }
     .slot-btn.active small { color:var(--yellow-soft); }
     .slot-btn.booked { background:var(--booked); color:#777061; border-color:#c7bea1; cursor:not-allowed; }
@@ -40,13 +40,13 @@
   </style>
 </head>
 <body>
-  <header><div class="brand"><img class="logo" src="assets/logo.png" alt="???? LOGO"><div><h1>??????????????</h1><div class="hint">?????????????????????</div></div></div></header>
+  <header><div class="brand"><img class="logo" src="assets/logo.png" alt="logo"><div><h1>&#31532;&#22235;&#22823;&#38538;&#25937;&#35703;&#25216;&#34899;&#26222;&#28204;&#22577;&#21517;&#31995;&#32113;</h1><div class="hint">&#35531;&#36984;&#25799;&#26085;&#26399;&#33287;&#26178;&#27573;&#65292;&#24050;&#38928;&#32004;&#26178;&#27573;&#28961;&#27861;&#20877;&#27425;&#36984;&#21462;&#12290;</div></div></div></header>
   <main>
-    <section class="block"><p class="label">????</p><div id="dateButtons" class="dates"></div></section>
-    <section class="block"><p class="label">???????</p><input id="selectedTime" class="chosen" type="text" readonly placeholder="??????????"><div class="session-head">???? <span>09:00 - 12:00</span></div><div id="morningSlots" class="slots"></div><div class="session-head">???? <span>13:00 - 17:00</span></div><div id="afternoonSlots" class="slots"></div></section>
-    <section class="block"><p class="label">??????1</p><input id="name1" type="text" placeholder="?????"><p class="label">??????2</p><input id="name2" type="text" placeholder="?????"></section>
+    <section class="block"><p class="label">&#28204;&#39511;&#26085;&#26399;</p><div id="dateButtons" class="dates"></div></section>
+    <section class="block"><p class="label">&#24050;&#36984;&#25799;&#28204;&#39511;&#26178;&#38291;</p><input id="selectedTime" class="chosen" type="text" readonly placeholder="&#35531;&#40670;&#36984;&#19979;&#26041;&#21487;&#22577;&#21517;&#26178;&#27573;"><div class="session-head">&#19978;&#21320;&#22580;&#27425; <span>09:00 - 12:00</span></div><div id="morningSlots" class="slots"></div><div class="session-head">&#19979;&#21320;&#22580;&#27425; <span>13:00 - 17:00</span></div><div id="afternoonSlots" class="slots"></div></section>
+    <section class="block"><p class="label">&#21463;&#28204;&#20154;&#21729;&#22995;&#21517;1</p><input id="name1" type="text" placeholder="&#35531;&#36664;&#20837;&#22995;&#21517;"><p class="label">&#21463;&#28204;&#20154;&#21729;&#22995;&#21517;2</p><input id="name2" type="text" placeholder="&#35531;&#36664;&#20837;&#22995;&#21517;"></section>
   </main>
-  <div class="bottom"><div class="bottom-inner"><button id="submitBtn" class="submit" onclick="submitBooking()">????</button><span id="message" class="msg"></span></div></div>
+  <div class="bottom"><div class="bottom-inner"><button id="submitBtn" class="submit" onclick="submitBooking()">&#36865;&#20986;&#22577;&#21517;</button><span id="message" class="msg"></span></div></div>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
     import { getFirestore, collection, doc, onSnapshot, runTransaction, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
@@ -61,55 +61,64 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     let allSlots = [], selectedDate = "", selectedSlotId = "";
+    const AVAILABLE = "可報名";
+    const BOOKED = "已預約";
+    const MORNING = "上午";
+    const AFTERNOON = "下午";
     window.submitBooking = submitBooking; window.selectDate = selectDate; window.selectSlot = selectSlot;
     onSnapshot(collection(db,"slots"), snapshot => {
       allSlots = snapshot.docs.map(item => item.data()).sort((a,b) => a.dateId !== b.dateId ? a.dateId.localeCompare(b.dateId) : a.time.localeCompare(b.time));
-      if (allSlots.length === 0) { setMessage("???????????????????", "err"); return; }
+      if (allSlots.length === 0) { setMessage("目前沒有可報名時段，請先建立時段資料。", "err"); return; }
       const dates = [...new Set(allSlots.map(slot => slot.dateLabel))];
       if (!selectedDate || !dates.includes(selectedDate)) selectedDate = dates[0];
       renderDates(); renderSlots(); setMessage("", "");
-    }, error => setMessage(error.message || "?????????????", "err"));
+    }, error => setMessage(error.message || "讀取資料失敗，請稍後再試。", "err"));
     function renderDates() {
       const dates = [...new Set(allSlots.map(slot => slot.dateLabel))];
       document.getElementById("dateButtons").innerHTML = dates.map(date => `<button type="button" class="date-btn ${date === selectedDate ? "active" : ""}" onclick="selectDate('${date}')">${date}</button>`).join("");
     }
     function selectDate(date) { selectedDate = date; selectedSlotId = ""; document.getElementById("selectedTime").value = ""; renderDates(); renderSlots(); setMessage("", ""); }
-    function renderSlots() { renderSlotGroup("morningSlots", "??"); renderSlotGroup("afternoonSlots", "??"); }
+    function renderSlots() { renderSlotGroup("morningSlots", MORNING); renderSlotGroup("afternoonSlots", AFTERNOON); }
+    function bookedLabel(slot) {
+      const names = [slot.name1, slot.name2].filter(Boolean).join("、");
+      return names || BOOKED;
+    }
     function renderSlotGroup(elementId, session) {
       const slots = allSlots.filter(slot => slot.dateLabel === selectedDate && slot.session === session);
       document.getElementById(elementId).innerHTML = slots.map(slot => {
-        const booked = slot.status !== "???", active = slot.slotId === selectedSlotId;
-        return `<button type="button" class="slot-btn ${booked ? "booked" : ""} ${active ? "active" : ""}" ${booked ? "disabled" : ""} onclick="selectSlot('${slot.slotId}')">${slot.time}<small>${booked ? "???" : "???"}</small></button>`;
+        const booked = slot.status !== AVAILABLE, active = slot.slotId === selectedSlotId;
+        const label = booked ? bookedLabel(slot) : AVAILABLE;
+        return `<button type="button" class="slot-btn ${booked ? "booked" : ""} ${active ? "active" : ""}" ${booked ? "disabled" : ""} onclick="selectSlot('${slot.slotId}')">${slot.time}<small>${label}</small></button>`;
       }).join("");
     }
-    function selectSlot(slotId) { const slot = allSlots.find(item => item.slotId === slotId); if (!slot || slot.status !== "???") return; selectedSlotId = slotId; document.getElementById("selectedTime").value = `${slot.dateLabel} ${slot.time}`; renderSlots(); setMessage("", ""); }
+    function selectSlot(slotId) { const slot = allSlots.find(item => item.slotId === slotId); if (!slot || slot.status !== AVAILABLE) return; selectedSlotId = slotId; document.getElementById("selectedTime").value = `${slot.dateLabel} ${slot.time}`; renderSlots(); setMessage("", ""); }
     async function submitBooking() {
       const name1 = document.getElementById("name1").value.trim(), name2 = document.getElementById("name2").value.trim(), submitBtn = document.getElementById("submitBtn");
-      if (!selectedSlotId) return setMessage("?????????", "err");
-      if (!name1 || !name2) return setMessage("????????????", "err");
+      if (!selectedSlotId) return setMessage("請先選擇測驗時段。", "err");
+      if (!name1 || !name2) return setMessage("請填寫兩位受測人員姓名。", "err");
       const slot = allSlots.find(item => item.slotId === selectedSlotId);
-      if (!slot) return setMessage("??????????????", "err");
-      const confirmed = window.confirm(`????????????
+      if (!slot) return setMessage("找不到所選時段，請重新選擇。", "err");
+      const confirmed = window.confirm(`請確認報名資料是否正確：
 
-?????${slot.dateLabel}
-?????${slot.time}
-?????${slot.session}
-???????${name1}?${name2}
+報名日期：${slot.dateLabel}
+報名時間：${slot.time}
+報名場次：${slot.session}
+報名人員姓名：${name1}、${name2}
 
-???????`);
-      if (!confirmed) return setMessage("????????????????", "err");
-      submitBtn.disabled = true; setMessage("?????...", "");
+確認無誤送出？`);
+      if (!confirmed) return setMessage("您剛才未確認送出，報名尚未完成。", "err");
+      submitBtn.disabled = true; setMessage("報名處理中...", "");
       try {
         await runTransaction(db, async transaction => {
           const slotRef = doc(db, "slots", selectedSlotId);
           const slotDoc = await transaction.get(slotRef);
-          if (!slotDoc.exists()) throw new Error("?????????");
-          if (slotDoc.data().status !== "???") throw new Error("??????????????????");
-          transaction.update(slotRef, { status:"???", name1, name2, bookedAt:serverTimestamp() });
+          if (!slotDoc.exists()) throw new Error("找不到此測驗時段。");
+          if (slotDoc.data().status !== AVAILABLE) throw new Error("此時段已被預約，請重新選擇其他時段。");
+          transaction.update(slotRef, { status:BOOKED, name1, name2, bookedAt:serverTimestamp() });
         });
-        window.alert("????");
-        document.getElementById("name1").value = ""; document.getElementById("name2").value = ""; document.getElementById("selectedTime").value = ""; selectedSlotId = ""; setMessage("?????", "ok");
-      } catch (error) { setMessage(error.message || "?????????????", "err"); } finally { submitBtn.disabled = false; }
+        window.alert("報名完成");
+        document.getElementById("name1").value = ""; document.getElementById("name2").value = ""; document.getElementById("selectedTime").value = ""; selectedSlotId = ""; setMessage("報名成功。", "ok");
+      } catch (error) { setMessage(error.message || "報名失敗，請重新選擇時段。", "err"); } finally { submitBtn.disabled = false; }
     }
     function setMessage(text, type) { const msg = document.getElementById("message"); msg.textContent = text; msg.className = `msg ${type || ""}`; }
   </script>
