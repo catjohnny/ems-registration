@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>??????????</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: Arial, "Noto Sans TC", sans-serif; background:#f3efe2; color:#111; margin:0; padding:24px; }
+    main { max-width:560px; margin:0 auto; background:#fffaf0; border:1px solid #d8c98d; border-radius:8px; padding:18px; }
+    button { width:100%; min-height:54px; border:0; border-radius:8px; background:#111; color:#eadca7; font-size:18px; font-weight:900; }
+    pre { white-space:pre-wrap; line-height:1.6; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>??????? Firebase</h1>
+    <p>??????? Excel ???????????? 09:00-12:00??? 13:00-17:00 ??????? 112 ??</p>
+    <button id="importBtn">???? Firebase</button>
+    <pre id="log">?????</pre>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
+    import { getFirestore, doc, writeBatch, Timestamp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDY2SAXwWPxgFWaUHU7h1ARjwtgo16G2Yo",
+      authDomain: "emstest-e3ec1.firebaseapp.com",
+      projectId: "emstest-e3ec1",
+      storageBucket: "emstest-e3ec1.firebasestorage.app",
+      messagingSenderId: "887383383886",
+      appId: "1:887383383886:web:452e3a1e8f756119f7c81f"
+    };
+    const slots = [
+  {
+    "slotId": "2026-07-01_09:00",
+    "dateId": "2026-07-01",
+    "dateLabel": "7?1?",
+    "session": "上午",
+    "time": "09:00",
+    "status": "已預約",
+    "name1": "謝秉辰",
+    "name2": "陳宏賓",
+    "bookedAtText": "2026-06-07T20:33:58.354000"
+  },
+  {
+    "slotId": "2026-07-01_09:15",
+    "dateId": "2026-07-01",
+    "dateLabel": "7?1?",
+    "session": "上午",
+    "time": "09:15",
+    "status": "已預約",
+    "name1": "周子軒",
+    "name2": "許瑞洋",
+    "bookedAtText": "2026-06-08T15:48:53.909000"
+  },
+  {
+    "slotId": "2026-07-01_09:30",
+    "dateId": "2026-07-01",
+    "dateLabel": "7?1?",
+    "session": "上午",
+    "time": "09:30",
+    "status": "已預約",
+    "name1": "趙得岑",
+    "name2": "黃弈程",
+    "bookedAtText": "2026-06-08T13:09:16.744000"
+  },
+  {
+    "slotId": "2026-07-01_09:45",
+    "dateId": "2026-07-01",
+    "dateLabel": "7?1?",
+    "session": "上午",
+    "time": "09:45",
+    "status": "已預約",
+    "name1": "林仁智",
+    "name2": "吳克仁",
+    "bookedAtText": "2026-06-09T12:23:47.036000"
+  },
+  {
+    "slotId": "2026-07-01_10:00",
+    "dateId": "2026-07-01",
+    "dateLabel": "7?1?",
+    "session": "上午",
+    "time": "10:00",
+    "status": "已預約",
+    "name1": "張志嘉",
+    "name2": "田伯勛",
+    "bookedAtText": "2026-06-08T15:30:09.699000"
+  },
+  {
+    "slotId": "2026-07-01_10:15",
+    "dateId": "2026-07-01",
+    "dateLabel": "7?1?",
+    "session": "上午",
+    "time": "10:15",
+    "status": "已預約",
+    "name1": "林仁智",
+    "name2": "江佩蓉",
+    "bookedAtText": "2026-06-09T12:24:26.789000"
+  },
+  {
+    "slotId": "2026-07-01_10:30",
+    "dateId": "2026-07-01",
+    "dateLabel": "7?1?",
+    "session": "上午",
+    "time": "10:30",
+    "status": "已預約",
+    "name1": "周成峰",
+    "name2": "金文揚",
+    "bookedAtText": "2026-06-08T20:17:25.343000"
+  },
+  {
+    "slotId": "2026-07-01_10:45",
+    "dateId": "2026-07-01",
+    "dateLabel": "7?1?",
+    "session": "上午",
+    "time": "10:45",
+    "status": "已預約",
+    "name1": "達虎",
+    "name2": "林楷峻",
+    "bookedAtText": "2026-06-09T11:36:45.878000"
+  },
+  {
+    "slotId": "2026-07-01_11:00",
+    "dateId": "2026-07-01",
+    "dateLabel": "7?1?",
+    "session": "上午",
+    "time": "11:00",
+    "status": "已預約",
+    "name1": "林琨哲",
+    "name2": "高夢笙",
+    "bookedAtText": "2026-06-08T10:17:03.847000"
+  },
+  {
+    "slotId": "2026-07-01_11:15",
+    "dateId": "2026-07-01",
+    "dateLabel": "7?1?",
+    "session": "上午",
+    "time": "11:15",
+    "status": "已預約",
+    "name1": "林義傑",
+    "name2": "鄭偉廷",
+    "bookedAtText": "2026-06-08T14:27:06.821000"
+  },
+  {
+    "slotId": "2026-07-01_11:30",
+    "dateId": "2026-07-01",
+    "dateLabel": "7?1?",
+    "session": "??",
+    "time": "11:30",
+    "status": "???",
+    "name1": "",
+    "name2": "",
+    "bookedAtText": ""
+  },
+  {
+    "slotId": "2026-07-01_11:45",
+    "dateId": "2026-07-01",
+    "dateLabel": "7?1?",
+    "session": "??",
+    "time": "11:45",
+    "status": "???",
+    "name1": "",
+    "name2": "",
+    "bookedAtText": ""
+  },
+  {
+    "slotId": "2026-07-01_13:00",
+    "dateId": "2026-07-01",
+    "dateLabel": "7?1?",
+    "session": "下午",
+    "time": "13:00",
+    "status": "已預約",
+    "name1": "李重潤",
+    "name2": "程子芸",
+    "bookedAtText": "2026-06-09T15:08:10.134000"
+  },
+  {
+    "slotId": "2026-07-01_13:15",
+    "dateId": "2026-07-01",
+    "dateLabel": "7?1?",
+    "session": "下午",
+    "time": "13:15",
+    "status": "可報名",
+    "name1": "",
+    "name2": "",
+    "bookedAtText": ""
+  },
+  {
+    "slotId": "2026-07-01_13:30",
+    "dateId": "2026-07-01",
+    "dateLabel": "7?1?",
+    "session": "下午",
+    "time": "13:30",
+    "status": "已預約",
+    "name1": "林揚正",
+    "name2": "李科達",
+    "bookedAtText": "2026-06-10T12:01:16.650000"
+  },
+  {
+    "slotId": "2026-07-01_13:45",
+    "dateId": "2026-07-01",
+    "dateLabel": "7?1?",
+    "session": "下午",
+    "time": "13:45",
+    "status": "已預約",
+    "name1": "張仁樺",
+    "name2": "賴元德",
+    "bookedAtText": "2026-06-10T11:13:24.433000"
+  },
+  {
+    "slotId": "2026-07-01_14:00",
+    "dateId": "2026-07-01",
+    "dateLabel": "7?1?",
+    "session": "下午",
+    "time": "14:00",
+    "status": "已預約",
+    "name1": "郭奕星",
+    "name2": "陳宏泰",
+    "bookedAtText": "2026-06-09T15:48:17.365000"
+  },
+  {
+    "slotId": "2026-07-01_14:15",
+    "dateId": "2026-07-01",
+    "dateLabel": "7?1?",
+    "session": "下午",
+    "time": "14:15",
+    "status": "已預約",
+    "name1": "林登欽",
+    "name2": "張勝凱",
+    "bookedAtText": "2026-06-09T16:46:09.719000"
+  },
+  {
+    "slotId": "2026-07-01_14:30",
+    "dateId": "2026-07-01",
+    "dateLabel": "7?1?",
+    "session": "下午",
+    "time": "14:30",
+    "status": "已預約",
+    "name1": "王綉萍",
+    "name2": "程子芸",
+    "bookedAtText": "2026-06-09T15:09:04.875000"
+  },
+  {
+    "slotId": "2026-07-01_14:45",
+    "dateId": "2026-07-01",
+    "dateLabel": "7?1?",
+    "session": "下午",
+    "time": "14:45",
+    "status": "已預約",
+    "name1": "陳泓熙",
+    "name2": "凃勝翔",
+    "bookedAtText": "2026-06-08T19:41:21.043000"
+  },
+  {
+    "slotId": "2026-07-01_15:00",
+    "dateId": "2026-07-01",
+    "dateLabel": "7?1?",
+    "session": "下午",
+    "time": "15:00",
+    "status": "已預約",
+    "name1": "陳云甫",
+    "name2": "張詠琪",
+    "bookedAtText": "2026-06-08T14:56:11.397000"
+  },
+  {
+    "slotId": "2026-07-01_15:15",
+    "dateId": "2026-07-01",
+    "dateLabel": "7?1?",
+    "session": "下午",
+    "time": "15:15",
+    "status": "已預約",
+    "name1": "王愷博",
+    "name2": "郭昱良",
+    "bookedAtText": "2026-06-07T20:10:42.831000"
+  },
+  {
+    "slotId": "2026-07-01_15:30",
+    "dateId": "2026-07-01",
+    "dateLabel": "7?1?",
+    "session": "下午",
+    "time": "15:30",
+    "status": "已預約",
+    "name1": "陳世欣",
+    "name2": "許國豐",
+    "bookedAtText": "2026-06-08T12:26:05.190000"
+  },
+  {
+    "slotId": "2026-07-01_15:45",
+    "dateId": "2026-07-01",
+    "dateLabel": "7?1?",
+    "session": "下午",
+    "time": "15:45",
+    "status": "已預約",
+    "name1": "張君漢",
+    "name2": "柯東京",
+    "bookedAtText": "2026-06-07T20:43:47.744000"
+  },
+  {
+    "slotId": "2026-07-01_16:00",
+    "dateId": "2026-07-01",
+    "dateLabel": "7?1?",
+    "session": "??",
+    "time": "16:00",
+    "status": "???",
+    "name1": "",
+    "name2": "",
+    "bookedAtText": ""
+  },
+  {
+    "slotId": "2026-07-01_16:15",
+    "dateId": "2026-07-01",
+    "dateLabel": "7?1?",
+    "session": "??",
+    "time": "16:15",
+    "status": "???",
+    "name1": "",
+    "name2": "",
+    "bookedAtText": ""
+  },
+  {
+    "slotId": "2026-07-01_16:30",
+    "dateId": "2026-07-01",
+    "dateLabel": "7?1?",
+    "session": "??",
+    "time": "16:30",
+    "status": "???",
+    "name1": "",
+    "name2": "",
+    "bookedAtText": ""
+  },
+  {
+    "slotId": "2026-07-01_16:45",
+    "dateId": "2026-07-01",
+    "dateLabel": "7?1?",
+    "session": "??",
+    "time": "16:45",
+    "status": "???",
+    "name1": "",
+    "name2": "",
+    "bookedAtText": ""
+  },
+  {
+    "slotId": "2026-07-11_09:00",
+    "dateId": "2026-07-11",
+    "dateLabel": "7?11?",
+    "session": "上午",
+    "time": "09:00",
+    "status": "已預約",
+    "name1": "謝祥彥",
+    "name2": "曾沈煜",
+    "bookedAtText": "2026-06-09T16:10:52.258000"
+  },
+  {
+    "slotId": "2026-07-11_09:15",
+    "dateId": "2026-07-11",
+    "dateLabel": "7?11?",
+    "session": "上午",
+    "time": "09:15",
+    "status": "已預約",
+    "name1": "吳冠儀",
+    "name2": "鍾見文",
+    "bookedAtText": "2026-06-08T10:13:39.885000"
+  },
+  {
+    "slotId": "2026-07-11_09:30",
+    "dateId": "2026-07-11",
+    "dateLabel": "7?11?",
+    "session": "上午",
+    "time": "09:30",
+    "status": "已預約",
+    "name1": "邱宇彬",
+    "name2": "李志豪",
+    "bookedAtText": "2026-06-09T16:01:31.287000"
+  },
+  {
+    "slotId": "2026-07-11_09:45",
+    "dateId": "2026-07-11",
+    "dateLabel": "7?11?",
+    "session": "上午",
+    "time": "09:45",
+    "status": "已預約",
+    "name1": "鄭博仁",
+    "name2": "林冠宇",
+    "bookedAtText": "2026-06-09T14:58:46.334000"
+  },
+  {
+    "slotId": "2026-07-11_10:00",
+    "dateId": "2026-07-11",
+    "dateLabel": "7?11?",
+    "session": "上午",
+    "time": "10:00",
+    "status": "已預約",
+    "name1": "陳威典",
+    "name2": "陳侑儀",
+    "bookedAtText": "2026-06-07T23:18:36.957000"
+  },
+  {
+    "slotId": "2026-07-11_10:15",
+    "dateId": "2026-07-11",
+    "dateLabel": "7?11?",
+    "session": "上午",
+    "time": "10:15",
+    "status": "已預約",
+    "name1": "李丞晏",
+    "name2": "楊敦勛",
+    "bookedAtText": "2026-06-08T11:34:52.703000"
+  },
+  {
+    "slotId": "2026-07-11_10:30",
+    "dateId": "2026-07-11",
+    "dateLabel": "7?11?",
+    "session": "上午",
+    "time": "10:30",
+    "status": "已預約",
+    "name1": "胡文政",
+    "name2": "劉燦賢",
+    "bookedAtText": "2026-06-07T20:51:13.309000"
+  },
+  {
+    "slotId": "2026-07-11_10:45",
+    "dateId": "2026-07-11",
+    "dateLabel": "7?11?",
+    "session": "上午",
+    "time": "10:45",
+    "status": "已預約",
+    "name1": "呂志君",
+    "name2": "邱聖鈞",
+    "bookedAtText": "2026-06-08T14:36:00.328000"
+  },
+  {
+    "slotId": "2026-07-11_11:00",
+    "dateId": "2026-07-11",
+    "dateLabel": "7?11?",
+    "session": "上午",
+    "time": "11:00",
+    "status": "已預約",
+    "name1": "宋年弘",
+    "name2": "江尼沃克",
+    "bookedAtText": "2026-06-08T11:56:42.255000"
+  },
+  {
+    "slotId": "2026-07-11_11:15",
+    "dateId": "2026-07-11",
+    "dateLabel": "7?11?",
+    "session": "上午",
+    "time": "11:15",
+    "status": "已預約",
+    "name1": "吳宥頡",
+    "name2": "邱勇智",
+    "bookedAtText": "2026-06-08T09:43:54.596000"
+  },
+  {
+    "slotId": "2026-07-11_11:30",
+    "dateId": "2026-07-11",
+    "dateLabel": "7?11?",
+    "session": "??",
+    "time": "11:30",
+    "status": "???",
+    "name1": "",
+    "name2": "",
+    "bookedAtText": ""
+  },
+  {
+    "slotId": "2026-07-11_11:45",
+    "dateId": "2026-07-11",
+    "dateLabel": "7?11?",
+    "session": "??",
+    "time": "11:45",
+    "status": "???",
+    "name1": "",
+    "name2": "",
+    "bookedAtText": ""
+  },
+  {
+    "slotId": "2026-07-11_13:00",
+    "dateId": "2026-07-11",
+    "dateLabel": "7?11?",
+    "session": "下午",
+    "time": "13:00",
+    "status": "已預約",
+    "name1": "蔡易縉",
+    "name2": "李尉詳",
+    "bookedAtText": "2026-06-09T16:09:35.926000"
+  },
+  {
+    "slotId": "2026-07-11_13:15",
+    "dateId": "2026-07-11",
+    "dateLabel": "7?11?",
+    "session": "下午",
+    "time": "13:15",
+    "status": "已預約",
+    "name1": "崔浩",
+    "name2": "蘇夏隆",
+    "bookedAtText": "2026-06-09T09:18:15.538000"
+  },
+  {
+    "slotId": "2026-07-11_13:30",
+    "dateId": "2026-07-11",
+    "dateLabel": "7?11?",
+    "session": "下午",
+    "time": "13:30",
+    "status": "已預約",
+    "name1": "杜畇暭",
+    "name2": "林揚竣",
+    "bookedAtText": "2026-06-08T19:10:20.614000"
+  },
+  {
+    "slotId": "2026-07-11_13:45",
+    "dateId": "2026-07-11",
+    "dateLabel": "7?11?",
+    "session": "下午",
+    "time": "13:45",
+    "status": "已預約",
+    "name1": "黃中乾",
+    "name2": "方紹安",
+    "bookedAtText": "2026-06-09T19:47:56.643000"
+  },
+  {
+    "slotId": "2026-07-11_14:00",
+    "dateId": "2026-07-11",
+    "dateLabel": "7?11?",
+    "session": "下午",
+    "time": "14:00",
+    "status": "已預約",
+    "name1": "陳俊宏",
+    "name2": "黃暉評",
+    "bookedAtText": "2026-06-08T15:37:40.304000"
+  },
+  {
+    "slotId": "2026-07-11_14:15",
+    "dateId": "2026-07-11",
+    "dateLabel": "7?11?",
+    "session": "下午",
+    "time": "14:15",
+    "status": "已預約",
+    "name1": "簡子堯",
+    "name2": "葉宜靜",
+    "bookedAtText": "2026-06-08T15:29:35.386000"
+  },
+  {
+    "slotId": "2026-07-11_14:30",
+    "dateId": "2026-07-11",
+    "dateLabel": "7?11?",
+    "session": "下午",
+    "time": "14:30",
+    "status": "已預約",
+    "name1": "鮑楷仁",
+    "name2": "高廣倫",
+    "bookedAtText": "2026-06-08T11:31:09.045000"
+  },
+  {
+    "slotId": "2026-07-11_14:45",
+    "dateId": "2026-07-11",
+    "dateLabel": "7?11?",
+    "session": "下午",
+    "time": "14:45",
+    "status": "已預約",
+    "name1": "林峻加",
+    "name2": "顏昱丞",
+    "bookedAtText": "2026-06-08T11:27:41.210000"
+  },
+  {
+    "slotId": "2026-07-11_15:00",
+    "dateId": "2026-07-11",
+    "dateLabel": "7?11?",
+    "session": "下午",
+    "time": "15:00",
+    "status": "已預約",
+    "name1": "趙品鋐",
+    "name2": "陳冠逸",
+    "bookedAtText": "2026-06-07T21:22:44.314000"
+  },
+  {
+    "slotId": "2026-07-11_15:15",
+    "dateId": "2026-07-11",
+    "dateLabel": "7?11?",
+    "session": "下午",
+    "time": "15:15",
+    "status": "已預約",
+    "name1": "蔡佳紋",
+    "name2": "許峻益",
+    "bookedAtText": "2026-06-07T21:03:46.947000"
+  },
+  {
+    "slotId": "2026-07-11_15:30",
+    "dateId": "2026-07-11",
+    "dateLabel": "7?11?",
+    "session": "下午",
+    "time": "15:30",
+    "status": "已預約",
+    "name1": "沈柏志",
+    "name2": "廖思竑",
+    "bookedAtText": "2026-06-08T09:33:06.402000"
+  },
+  {
+    "slotId": "2026-07-11_15:45",
+    "dateId": "2026-07-11",
+    "dateLabel": "7?11?",
+    "session": "下午",
+    "time": "15:45",
+    "status": "已預約",
+    "name1": "陳振偉",
+    "name2": "魏荃",
+    "bookedAtText": "2026-06-07T20:01:30.742000"
+  },
+  {
+    "slotId": "2026-07-11_16:00",
+    "dateId": "2026-07-11",
+    "dateLabel": "7?11?",
+    "session": "??",
+    "time": "16:00",
+    "status": "???",
+    "name1": "",
+    "name2": "",
+    "bookedAtText": ""
+  },
+  {
+    "slotId": "2026-07-11_16:15",
+    "dateId": "2026-07-11",
+    "dateLabel": "7?11?",
+    "session": "??",
+    "time": "16:15",
+    "status": "???",
+    "name1": "",
+    "name2": "",
+    "bookedAtText": ""
+  },
+  {
+    "slotId": "2026-07-11_16:30",
+    "dateId": "2026-07-11",
+    "dateLabel": "7?11?",
+    "session": "??",
+    "time": "16:30",
+    "status": "???",
+    "name1": "",
+    "name2": "",
+    "bookedAtText": ""
+  },
+  {
+    "slotId": "2026-07-11_16:45",
+    "dateId": "2026-07-11",
+    "dateLabel": "7?11?",
+    "session": "??",
+    "time": "16:45",
+    "status": "???",
+    "name1": "",
+    "name2": "",
+    "bookedAtText": ""
+  },
+  {
+    "slotId": "2026-07-20_09:00",
+    "dateId": "2026-07-20",
+    "dateLabel": "7?20?",
+    "session": "上午",
+    "time": "09:00",
+    "status": "已預約",
+    "name1": "林仁智",
+    "name2": "江佩蓉",
+    "bookedAtText": "2026-06-09T13:37:15.057000"
+  },
+  {
+    "slotId": "2026-07-20_09:15",
+    "dateId": "2026-07-20",
+    "dateLabel": "7?20?",
+    "session": "上午",
+    "time": "09:15",
+    "status": "已預約",
+    "name1": "許晟恩",
+    "name2": "吳榮峻",
+    "bookedAtText": "2026-06-08T12:05:02.844000"
+  },
+  {
+    "slotId": "2026-07-20_09:30",
+    "dateId": "2026-07-20",
+    "dateLabel": "7?20?",
+    "session": "上午",
+    "time": "09:30",
+    "status": "已預約",
+    "name1": "唐健豪",
+    "name2": "李孟哲",
+    "bookedAtText": "2026-06-08T11:01:26.695000"
+  },
+  {
+    "slotId": "2026-07-20_09:45",
+    "dateId": "2026-07-20",
+    "dateLabel": "7?20?",
+    "session": "上午",
+    "time": "09:45",
+    "status": "可報名",
+    "name1": "",
+    "name2": "",
+    "bookedAtText": ""
+  },
+  {
+    "slotId": "2026-07-20_10:00",
+    "dateId": "2026-07-20",
+    "dateLabel": "7?20?",
+    "session": "上午",
+    "time": "10:00",
+    "status": "已預約",
+    "name1": "吳昊倫",
+    "name2": "鄭鈞文",
+    "bookedAtText": "2026-06-08T09:22:20.155000"
+  },
+  {
+    "slotId": "2026-07-20_10:15",
+    "dateId": "2026-07-20",
+    "dateLabel": "7?20?",
+    "session": "上午",
+    "time": "10:15",
+    "status": "已預約",
+    "name1": "鄭凱文",
+    "name2": "樊尚謄",
+    "bookedAtText": "2026-06-08T15:02:19.021000"
+  },
+  {
+    "slotId": "2026-07-20_10:30",
+    "dateId": "2026-07-20",
+    "dateLabel": "7?20?",
+    "session": "上午",
+    "time": "10:30",
+    "status": "已預約",
+    "name1": "鍾佳龍",
+    "name2": "蔡佳縉",
+    "bookedAtText": "2026-06-07T19:12:44.444000"
+  },
+  {
+    "slotId": "2026-07-20_10:45",
+    "dateId": "2026-07-20",
+    "dateLabel": "7?20?",
+    "session": "上午",
+    "time": "10:45",
+    "status": "已預約",
+    "name1": "魏旭昇",
+    "name2": "黃科智",
+    "bookedAtText": "2026-06-09T15:31:54.620000"
+  },
+  {
+    "slotId": "2026-07-20_11:00",
+    "dateId": "2026-07-20",
+    "dateLabel": "7?20?",
+    "session": "上午",
+    "time": "11:00",
+    "status": "已預約",
+    "name1": "張峻祥",
+    "name2": "蘇柏軒",
+    "bookedAtText": "2026-06-08T00:16:03.709000"
+  },
+  {
+    "slotId": "2026-07-20_11:15",
+    "dateId": "2026-07-20",
+    "dateLabel": "7?20?",
+    "session": "上午",
+    "time": "11:15",
+    "status": "已預約",
+    "name1": "黃冠嘉",
+    "name2": "游善丞",
+    "bookedAtText": "2026-06-07T20:20:50.120000"
+  },
+  {
+    "slotId": "2026-07-20_11:30",
+    "dateId": "2026-07-20",
+    "dateLabel": "7?20?",
+    "session": "??",
+    "time": "11:30",
+    "status": "???",
+    "name1": "",
+    "name2": "",
+    "bookedAtText": ""
+  },
+  {
+    "slotId": "2026-07-20_11:45",
+    "dateId": "2026-07-20",
+    "dateLabel": "7?20?",
+    "session": "??",
+    "time": "11:45",
+    "status": "???",
+    "name1": "",
+    "name2": "",
+    "bookedAtText": ""
+  },
+  {
+    "slotId": "2026-07-20_13:00",
+    "dateId": "2026-07-20",
+    "dateLabel": "7?20?",
+    "session": "下午",
+    "time": "13:00",
+    "status": "可報名",
+    "name1": "",
+    "name2": "",
+    "bookedAtText": ""
+  },
+  {
+    "slotId": "2026-07-20_13:15",
+    "dateId": "2026-07-20",
+    "dateLabel": "7?20?",
+    "session": "下午",
+    "time": "13:15",
+    "status": "已預約",
+    "name1": "趙子堅",
+    "name2": "王宏晉",
+    "bookedAtText": "2026-06-09T18:59:40.855000"
+  },
+  {
+    "slotId": "2026-07-20_13:30",
+    "dateId": "2026-07-20",
+    "dateLabel": "7?20?",
+    "session": "下午",
+    "time": "13:30",
+    "status": "已預約",
+    "name1": "鄭駿崴",
+    "name2": "呂嘉峻",
+    "bookedAtText": "2026-06-09T16:58:44.357000"
+  },
+  {
+    "slotId": "2026-07-20_13:45",
+    "dateId": "2026-07-20",
+    "dateLabel": "7?20?",
+    "session": "下午",
+    "time": "13:45",
+    "status": "已預約",
+    "name1": "鄭駿崴",
+    "name2": "陳仁康",
+    "bookedAtText": "2026-06-09T16:59:08.484000"
+  },
+  {
+    "slotId": "2026-07-20_14:00",
+    "dateId": "2026-07-20",
+    "dateLabel": "7?20?",
+    "session": "下午",
+    "time": "14:00",
+    "status": "已預約",
+    "name1": "葉宇哲",
+    "name2": "吳軍澄",
+    "bookedAtText": "2026-06-08T09:04:01.871000"
+  },
+  {
+    "slotId": "2026-07-20_14:15",
+    "dateId": "2026-07-20",
+    "dateLabel": "7?20?",
+    "session": "下午",
+    "time": "14:15",
+    "status": "已預約",
+    "name1": "李冠臻",
+    "name2": "黃冠豪",
+    "bookedAtText": "2026-06-09T08:49:54.160000"
+  },
+  {
+    "slotId": "2026-07-20_14:30",
+    "dateId": "2026-07-20",
+    "dateLabel": "7?20?",
+    "session": "下午",
+    "time": "14:30",
+    "status": "已預約",
+    "name1": "高梓鈞",
+    "name2": "涂育豪",
+    "bookedAtText": "2026-06-08T11:32:11.629000"
+  },
+  {
+    "slotId": "2026-07-20_14:45",
+    "dateId": "2026-07-20",
+    "dateLabel": "7?20?",
+    "session": "下午",
+    "time": "14:45",
+    "status": "已預約",
+    "name1": "陳文浩",
+    "name2": "郭聖佑",
+    "bookedAtText": "2026-06-07T20:47:45.696000"
+  },
+  {
+    "slotId": "2026-07-20_15:00",
+    "dateId": "2026-07-20",
+    "dateLabel": "7?20?",
+    "session": "下午",
+    "time": "15:00",
+    "status": "已預約",
+    "name1": "劉俱魁",
+    "name2": "林琨淵",
+    "bookedAtText": "2026-06-07T19:21:34.660000"
+  },
+  {
+    "slotId": "2026-07-20_15:15",
+    "dateId": "2026-07-20",
+    "dateLabel": "7?20?",
+    "session": "下午",
+    "time": "15:15",
+    "status": "已預約",
+    "name1": "李侑龍",
+    "name2": "吳鈺哲",
+    "bookedAtText": "2026-06-07T23:14:03.670000"
+  },
+  {
+    "slotId": "2026-07-20_15:30",
+    "dateId": "2026-07-20",
+    "dateLabel": "7?20?",
+    "session": "下午",
+    "time": "15:30",
+    "status": "已預約",
+    "name1": "林揚正",
+    "name2": "李科達",
+    "bookedAtText": "2026-06-07T19:44:09.937000"
+  },
+  {
+    "slotId": "2026-07-20_15:45",
+    "dateId": "2026-07-20",
+    "dateLabel": "7?20?",
+    "session": "下午",
+    "time": "15:45",
+    "status": "已預約",
+    "name1": "官奕騰",
+    "name2": "彭郅絜",
+    "bookedAtText": "2026-06-07T23:19:38.960000"
+  },
+  {
+    "slotId": "2026-07-20_16:00",
+    "dateId": "2026-07-20",
+    "dateLabel": "7?20?",
+    "session": "??",
+    "time": "16:00",
+    "status": "???",
+    "name1": "",
+    "name2": "",
+    "bookedAtText": ""
+  },
+  {
+    "slotId": "2026-07-20_16:15",
+    "dateId": "2026-07-20",
+    "dateLabel": "7?20?",
+    "session": "??",
+    "time": "16:15",
+    "status": "???",
+    "name1": "",
+    "name2": "",
+    "bookedAtText": ""
+  },
+  {
+    "slotId": "2026-07-20_16:30",
+    "dateId": "2026-07-20",
+    "dateLabel": "7?20?",
+    "session": "??",
+    "time": "16:30",
+    "status": "???",
+    "name1": "",
+    "name2": "",
+    "bookedAtText": ""
+  },
+  {
+    "slotId": "2026-07-20_16:45",
+    "dateId": "2026-07-20",
+    "dateLabel": "7?20?",
+    "session": "??",
+    "time": "16:45",
+    "status": "???",
+    "name1": "",
+    "name2": "",
+    "bookedAtText": ""
+  },
+  {
+    "slotId": "2026-07-21_09:00",
+    "dateId": "2026-07-21",
+    "dateLabel": "7?21?",
+    "session": "上午",
+    "time": "09:00",
+    "status": "已預約",
+    "name1": "林少青",
+    "name2": "吳斯傑",
+    "bookedAtText": "2026-06-09T19:26:22.965000"
+  },
+  {
+    "slotId": "2026-07-21_09:15",
+    "dateId": "2026-07-21",
+    "dateLabel": "7?21?",
+    "session": "上午",
+    "time": "09:15",
+    "status": "已預約",
+    "name1": "陳立軒",
+    "name2": "游博羽",
+    "bookedAtText": "2026-06-08T22:00:36.269000"
+  },
+  {
+    "slotId": "2026-07-21_09:30",
+    "dateId": "2026-07-21",
+    "dateLabel": "7?21?",
+    "session": "上午",
+    "time": "09:30",
+    "status": "已預約",
+    "name1": "詹子靖",
+    "name2": "范柏鈞",
+    "bookedAtText": "2026-06-08T18:21:25.970000"
+  },
+  {
+    "slotId": "2026-07-21_09:45",
+    "dateId": "2026-07-21",
+    "dateLabel": "7?21?",
+    "session": "上午",
+    "time": "09:45",
+    "status": "已預約",
+    "name1": "陳育材",
+    "name2": "吳致宣",
+    "bookedAtText": "2026-06-08T11:14:11.093000"
+  },
+  {
+    "slotId": "2026-07-21_10:00",
+    "dateId": "2026-07-21",
+    "dateLabel": "7?21?",
+    "session": "上午",
+    "time": "10:00",
+    "status": "已預約",
+    "name1": "陳登弘",
+    "name2": "胡益豪",
+    "bookedAtText": "2026-06-07T19:02:05.172000"
+  },
+  {
+    "slotId": "2026-07-21_10:15",
+    "dateId": "2026-07-21",
+    "dateLabel": "7?21?",
+    "session": "上午",
+    "time": "10:15",
+    "status": "已預約",
+    "name1": "廖宏陞",
+    "name2": "紀長榮",
+    "bookedAtText": "2026-06-07T20:00:46.735000"
+  },
+  {
+    "slotId": "2026-07-21_10:30",
+    "dateId": "2026-07-21",
+    "dateLabel": "7?21?",
+    "session": "上午",
+    "time": "10:30",
+    "status": "已預約",
+    "name1": "張以承",
+    "name2": "劉駿騰",
+    "bookedAtText": "2026-06-07T19:22:16.143000"
+  },
+  {
+    "slotId": "2026-07-21_10:45",
+    "dateId": "2026-07-21",
+    "dateLabel": "7?21?",
+    "session": "上午",
+    "time": "10:45",
+    "status": "已預約",
+    "name1": "曾子驊",
+    "name2": "吳源泉",
+    "bookedAtText": "2026-06-07T21:20:36.224000"
+  },
+  {
+    "slotId": "2026-07-21_11:00",
+    "dateId": "2026-07-21",
+    "dateLabel": "7?21?",
+    "session": "上午",
+    "time": "11:00",
+    "status": "已預約",
+    "name1": "薛謦瑔",
+    "name2": "楊清騰",
+    "bookedAtText": "2026-06-07T21:07:05.001000"
+  },
+  {
+    "slotId": "2026-07-21_11:15",
+    "dateId": "2026-07-21",
+    "dateLabel": "7?21?",
+    "session": "上午",
+    "time": "11:15",
+    "status": "已預約",
+    "name1": "林相維",
+    "name2": "江恩維",
+    "bookedAtText": "2026-06-07T23:30:39.127000"
+  },
+  {
+    "slotId": "2026-07-21_11:30",
+    "dateId": "2026-07-21",
+    "dateLabel": "7?21?",
+    "session": "??",
+    "time": "11:30",
+    "status": "???",
+    "name1": "",
+    "name2": "",
+    "bookedAtText": ""
+  },
+  {
+    "slotId": "2026-07-21_11:45",
+    "dateId": "2026-07-21",
+    "dateLabel": "7?21?",
+    "session": "??",
+    "time": "11:45",
+    "status": "???",
+    "name1": "",
+    "name2": "",
+    "bookedAtText": ""
+  },
+  {
+    "slotId": "2026-07-21_13:00",
+    "dateId": "2026-07-21",
+    "dateLabel": "7?21?",
+    "session": "下午",
+    "time": "13:00",
+    "status": "已預約",
+    "name1": "羅崇銘",
+    "name2": "田黃彥",
+    "bookedAtText": "2026-06-09T19:22:49.591000"
+  },
+  {
+    "slotId": "2026-07-21_13:15",
+    "dateId": "2026-07-21",
+    "dateLabel": "7?21?",
+    "session": "下午",
+    "time": "13:15",
+    "status": "已預約",
+    "name1": "黃文正",
+    "name2": "連昱傑",
+    "bookedAtText": "2026-06-09T19:54:19.137000"
+  },
+  {
+    "slotId": "2026-07-21_13:30",
+    "dateId": "2026-07-21",
+    "dateLabel": "7?21?",
+    "session": "下午",
+    "time": "13:30",
+    "status": "已預約",
+    "name1": "嚴文宏",
+    "name2": "余東霖",
+    "bookedAtText": "2026-06-09T17:13:09.052000"
+  },
+  {
+    "slotId": "2026-07-21_13:45",
+    "dateId": "2026-07-21",
+    "dateLabel": "7?21?",
+    "session": "下午",
+    "time": "13:45",
+    "status": "已預約",
+    "name1": "林志杰",
+    "name2": "陳明吉",
+    "bookedAtText": "2026-06-09T08:58:48.909000"
+  },
+  {
+    "slotId": "2026-07-21_14:00",
+    "dateId": "2026-07-21",
+    "dateLabel": "7?21?",
+    "session": "下午",
+    "time": "14:00",
+    "status": "已預約",
+    "name1": "黃柏偉",
+    "name2": "黃泳淀",
+    "bookedAtText": "2026-06-08T14:27:05.871000"
+  },
+  {
+    "slotId": "2026-07-21_14:15",
+    "dateId": "2026-07-21",
+    "dateLabel": "7?21?",
+    "session": "下午",
+    "time": "14:15",
+    "status": "已預約",
+    "name1": "孔祥璽",
+    "name2": "何勻廷",
+    "bookedAtText": "2026-06-08T09:11:54.691000"
+  },
+  {
+    "slotId": "2026-07-21_14:30",
+    "dateId": "2026-07-21",
+    "dateLabel": "7?21?",
+    "session": "下午",
+    "time": "14:30",
+    "status": "已預約",
+    "name1": "陳彥勳",
+    "name2": "王柏昇",
+    "bookedAtText": "2026-06-08T00:13:51.670000"
+  },
+  {
+    "slotId": "2026-07-21_14:45",
+    "dateId": "2026-07-21",
+    "dateLabel": "7?21?",
+    "session": "下午",
+    "time": "14:45",
+    "status": "已預約",
+    "name1": "陳志榮",
+    "name2": "黃彥翔",
+    "bookedAtText": "2026-06-08T08:37:52.330000"
+  },
+  {
+    "slotId": "2026-07-21_15:00",
+    "dateId": "2026-07-21",
+    "dateLabel": "7?21?",
+    "session": "下午",
+    "time": "15:00",
+    "status": "已預約",
+    "name1": "游彥銘",
+    "name2": "吳培安",
+    "bookedAtText": "2026-06-07T18:54:01.383000"
+  },
+  {
+    "slotId": "2026-07-21_15:15",
+    "dateId": "2026-07-21",
+    "dateLabel": "7?21?",
+    "session": "下午",
+    "time": "15:15",
+    "status": "已預約",
+    "name1": "魏茂森",
+    "name2": "陳智忠",
+    "bookedAtText": "2026-06-07T19:05:50.961000"
+  },
+  {
+    "slotId": "2026-07-21_15:30",
+    "dateId": "2026-07-21",
+    "dateLabel": "7?21?",
+    "session": "下午",
+    "time": "15:30",
+    "status": "已預約",
+    "name1": "廖邦凱",
+    "name2": "張証豪",
+    "bookedAtText": "2026-06-08T09:26:26.480000"
+  },
+  {
+    "slotId": "2026-07-21_15:45",
+    "dateId": "2026-07-21",
+    "dateLabel": "7?21?",
+    "session": "下午",
+    "time": "15:45",
+    "status": "已預約",
+    "name1": "翁鵬翔",
+    "name2": "簡仕晉",
+    "bookedAtText": "2026-06-07T19:37:59.720000"
+  },
+  {
+    "slotId": "2026-07-21_16:00",
+    "dateId": "2026-07-21",
+    "dateLabel": "7?21?",
+    "session": "??",
+    "time": "16:00",
+    "status": "???",
+    "name1": "",
+    "name2": "",
+    "bookedAtText": ""
+  },
+  {
+    "slotId": "2026-07-21_16:15",
+    "dateId": "2026-07-21",
+    "dateLabel": "7?21?",
+    "session": "??",
+    "time": "16:15",
+    "status": "???",
+    "name1": "",
+    "name2": "",
+    "bookedAtText": ""
+  },
+  {
+    "slotId": "2026-07-21_16:30",
+    "dateId": "2026-07-21",
+    "dateLabel": "7?21?",
+    "session": "??",
+    "time": "16:30",
+    "status": "???",
+    "name1": "",
+    "name2": "",
+    "bookedAtText": ""
+  },
+  {
+    "slotId": "2026-07-21_16:45",
+    "dateId": "2026-07-21",
+    "dateLabel": "7?21?",
+    "session": "??",
+    "time": "16:45",
+    "status": "???",
+    "name1": "",
+    "name2": "",
+    "bookedAtText": ""
+  }
+];
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const log = document.getElementById("log");
+    const btn = document.getElementById("importBtn");
+
+    btn.addEventListener("click", async () => {
+      if (!confirm("???????? Firebase ?????????")) return;
+      btn.disabled = true;
+      log.textContent = "???????????...";
+      try {
+        let batch = writeBatch(db);
+        let pending = 0;
+        let total = 0;
+        let booked = 0;
+
+        for (const slot of slots) {
+          const data = { ...slot };
+          if (data.bookedAtText) {
+            const parsed = new Date(data.bookedAtText);
+            data.bookedAt = isNaN(parsed.getTime()) ? null : Timestamp.fromDate(parsed);
+          } else {
+            data.bookedAt = null;
+          }
+          delete data.bookedAtText;
+          batch.set(doc(db, "slots", data.slotId), data);
+          pending++;
+          total++;
+          if (data.status === "???") booked++;
+          if (pending === 450) {
+            await batch.commit();
+            batch = writeBatch(db);
+            pending = 0;
+          }
+        }
+        if (pending > 0) await batch.commit();
+        log.textContent = `?????
+????${total} ?
+????${booked} ?
+????${total - booked} ?`;
+      } catch (error) {
+        log.textContent = `?????${error.message}`;
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
