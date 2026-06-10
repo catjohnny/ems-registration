@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>&#31532;&#22235;&#22823;&#38538;&#22577;&#21517;&#31995;&#32113;&#31649;&#29702;&#38913;</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root {
+      --black: #111;
+      --yellow: #c8b36a;
+      --yellow-soft: #eadca7;
+      --paper: #f3efe2;
+      --card: #fffaf0;
+      --line: #d8c98d;
+      --muted: #756f60;
+      --danger: #b42318;
+      --ok: #137a3a;
+      --blue: #155eef;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, "Noto Sans TC", sans-serif;
+      background: var(--paper);
+      color: var(--black);
+    }
+
+    header {
+      background: var(--black);
+      color: white;
+      border-bottom: 5px solid var(--yellow);
+      padding: 16px 14px;
+    }
+
+    .wrap {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 14px 12px 40px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.35;
+    }
+
+    .hint {
+      margin-top: 6px;
+      color: var(--yellow-soft);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+
+    label {
+      display: block;
+      margin: 0 0 7px;
+      font-weight: 900;
+    }
+
+    input,
+    select {
+      width: 100%;
+      min-height: 48px;
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      font-size: 16px;
+      background: white;
+    }
+
+    button {
+      min-height: 46px;
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-family: inherit;
+      font-size: 16px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .primary {
+      width: 100%;
+      background: var(--black);
+      color: var(--yellow-soft);
+    }
+
+    .secondary {
+      background: var(--blue);
+      color: white;
+    }
+
+    .danger {
+      background: var(--danger);
+      color: white;
+    }
+
+    .ghost {
+      border: 1px solid var(--line);
+      background: white;
+      color: var(--black);
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .msg {
+      min-height: 24px;
+      margin-top: 8px;
+      font-weight: 900;
+      line-height: 1.45;
+      text-align: center;
+    }
+
+    .ok { color: var(--ok); }
+    .err { color: var(--danger); }
+
+    .slot-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .slot-item {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      padding: 12px;
+    }
+
+    .slot-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+      font-weight: 900;
+    }
+
+    .names {
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-weight: 900;
+      line-height: 1.45;
+    }
+
+    .hidden { display: none; }
+
+    @media (max-width: 560px) {
+      .row,
+      .actions {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>&#31532;&#22235;&#22823;&#38538;&#22577;&#21517;&#31995;&#32113;&#31649;&#29702;&#38913;</h1>
+      <div class="hint">&#21487;&#20462;&#25913;&#22995;&#21517;&#12289;&#37323;&#20986;&#26178;&#27573;&#65292;&#25110;&#23559;&#24050;&#22577;&#21517;&#36039;&#26009;&#31227;&#21040;&#20854;&#20182;&#21487;&#22577;&#21517;&#26178;&#27573;&#12290;</div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section id="loginCard" class="card">
+      <label for="email">&#31649;&#29702;&#32773; Email</label>
+      <input id="email" type="email" autocomplete="username">
+
+      <label for="password">&#23494;&#30908;</label>
+      <input id="password" type="password" autocomplete="current-password">
+
+      <button class="primary" onclick="login()">&#30331;&#20837;</button>
+      <div id="loginMessage" class="msg"></div>
+    </section>
+
+    <section id="adminArea" class="hidden">
+      <section class="card">
+        <div class="row">
+          <div>
+            <label for="dateFilter">&#26085;&#26399;</label>
+            <select id="dateFilter" onchange="renderSlots()"></select>
+          </div>
+          <div>
+            <label for="statusFilter">&#29376;&#24907;</label>
+            <select id="statusFilter" onchange="renderSlots()">
+              <option value="booked">&#21482;&#30475;&#24050;&#22577;&#21517;</option>
+              <option value="available">&#21482;&#30475;&#21487;&#22577;&#21517;</option>
+              <option value="all">&#20840;&#37096;&#26178;&#27573;</option>
+            </select>
+          </div>
+        </div>
+        <button class="ghost" onclick="logout()">&#30331;&#20986;&#31649;&#29702;&#38913;</button>
+        <div id="adminMessage" class="msg"></div>
+      </section>
+
+      <section class="card">
+        <label for="moveFrom">&#23559;&#24050;&#22577;&#21517;&#26178;&#27573;&#31227;&#21040;&#20854;&#20182;&#26178;&#27573;</label>
+        <select id="moveFrom"></select>
+
+        <label for="moveTo">&#26032;&#26178;&#27573;&#65288;&#21482;&#26371;&#39023;&#31034;&#21487;&#22577;&#21517;&#26178;&#27573;&#65289;</label>
+        <select id="moveTo"></select>
+
+        <button class="secondary" onclick="moveBooking()">&#31227;&#36681;&#22577;&#21517;&#26178;&#27573;</button>
+      </section>
+
+      <section class="slot-list" id="slotList"></section>
+    </section>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
+    import {
+      getAuth,
+      signInWithEmailAndPassword,
+      signOut,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
+    import {
+      getFirestore,
+      collection,
+      doc,
+      onSnapshot,
+      runTransaction,
+      updateDoc,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDY2SAXwWPxgFWaUHU7h1ARjwtgo16G2Yo",
+      authDomain: "emstest-e3ec1.firebaseapp.com",
+      projectId: "emstest-e3ec1",
+      storageBucket: "emstest-e3ec1.firebasestorage.app",
+      messagingSenderId: "887383383886",
+      appId: "1:887383383886:web:452e3a1e8f756119f7c81f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const AVAILABLE = "\u53ef\u5831\u540d";
+    const BOOKED = "\u5df2\u9810\u7d04";
+
+    let allSlots = [];
+    let unsubscribeSlots = null;
+
+    window.login = login;
+    window.logout = logout;
+    window.renderSlots = renderSlots;
+    window.releaseSlot = releaseSlot;
+    window.saveNames = saveNames;
+    window.moveBooking = moveBooking;
+
+    onAuthStateChanged(auth, user => {
+      document.getElementById("loginCard").classList.toggle("hidden", !!user);
+      document.getElementById("adminArea").classList.toggle("hidden", !user);
+
+      if (user) {
+        listenSlots();
+      } else if (unsubscribeSlots) {
+        unsubscribeSlots();
+        unsubscribeSlots = null;
+      }
+    });
+
+    async function login() {
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+
+      setLoginMessage("\u767b\u5165\u4e2d...", "");
+
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+        setLoginMessage("", "");
+      } catch (error) {
+        setLoginMessage("\u767b\u5165\u5931\u6557\uff0c\u8acb\u6aa2\u67e5 Email \u8207\u5bc6\u78bc\u3002", "err");
+      }
+    }
+
+    async function logout() {
+      await signOut(auth);
+    }
+
+    function listenSlots() {
+      if (unsubscribeSlots) unsubscribeSlots();
+
+      unsubscribeSlots = onSnapshot(collection(db, "slots"), snapshot => {
+        allSlots = snapshot.docs.map(item => item.data()).sort((a, b) => {
+          if (a.dateId !== b.dateId) return a.dateId.localeCompare(b.dateId);
+          return a.time.localeCompare(b.time);
+        });
+
+        renderFilters();
+        renderSlots();
+        renderMoveSelectors();
+      }, error => {
+        setAdminMessage(error.message || "\u8b80\u53d6\u8cc7\u6599\u5931\u6557\u3002", "err");
+      });
+    }
+
+    function renderFilters() {
+      const select = document.getElementById("dateFilter");
+      const current = select.value;
+      const dates = [...new Set(allSlots.map(slot => slot.dateLabel))];
+
+      select.innerHTML = dates.map(date => `<option value="${date}">${date}</option>`).join("");
+
+      if (current && dates.includes(current)) {
+        select.value = current;
+      }
+    }
+
+    function renderSlots() {
+      const date = document.getElementById("dateFilter").value;
+      const status = document.getElementById("statusFilter").value;
+      const list = document.getElementById("slotList");
+
+      const slots = allSlots.filter(slot => {
+        if (slot.dateLabel !== date) return false;
+        if (status === "booked") return slot.status === BOOKED;
+        if (status === "available") return slot.status === AVAILABLE;
+        return true;
+      });
+
+      list.innerHTML = slots.map(slot => `
+        <article class="slot-item">
+          <div class="slot-top">
+            <span>${slot.dateLabel} ${slot.session} ${slot.time}</span>
+            <span>${slot.status}</span>
+          </div>
+          <div class="names">${slot.name1 || "\u7a7a\u767d"}\u3001${slot.name2 || "\u7a7a\u767d"}</div>
+          <div class="row">
+            <input id="name1-${safeId(slot.slotId)}" type="text" value="${escapeHtml(slot.name1 || "")}" placeholder="\u59d3\u540d1">
+            <input id="name2-${safeId(slot.slotId)}" type="text" value="${escapeHtml(slot.name2 || "")}" placeholder="\u59d3\u540d2">
+          </div>
+          <div class="actions">
+            <button class="secondary" onclick="saveNames('${slot.slotId}')">\u5132\u5b58\u59d3\u540d</button>
+            <button class="danger" onclick="releaseSlot('${slot.slotId}')">\u91cb\u51fa\u70ba\u53ef\u5831\u540d</button>
+          </div>
+        </article>
+      `).join("") || `<section class="card">\u6c92\u6709\u7b26\u5408\u689d\u4ef6\u7684\u8cc7\u6599\u3002</section>`;
+    }
+
+    function renderMoveSelectors() {
+      const from = document.getElementById("moveFrom");
+      const to = document.getElementById("moveTo");
+      const booked = allSlots.filter(slot => slot.status === BOOKED);
+      const available = allSlots.filter(slot => slot.status === AVAILABLE);
+
+      from.innerHTML = booked.map(slot => `<option value="${slot.slotId}">${slot.dateLabel} ${slot.session} ${slot.time} - ${escapeHtml(slot.name1 || "")}\u3001${escapeHtml(slot.name2 || "")}</option>`).join("");
+      to.innerHTML = available.map(slot => `<option value="${slot.slotId}">${slot.dateLabel} ${slot.session} ${slot.time}</option>`).join("");
+    }
+
+    async function saveNames(slotId) {
+      const name1 = document.getElementById(`name1-${safeId(slotId)}`).value.trim();
+      const name2 = document.getElementById(`name2-${safeId(slotId)}`).value.trim();
+
+      if (!name1 || !name2) {
+        setAdminMessage("\u8acb\u586b\u5beb\u5169\u4f4d\u59d3\u540d\u3002", "err");
+        return;
+      }
+
+      try {
+        await updateDoc(doc(db, "slots", slotId), {
+          status: BOOKED,
+          name1,
+          name2
+        });
+        setAdminMessage("\u59d3\u540d\u5df2\u5132\u5b58\u3002", "ok");
+      } catch (error) {
+        setAdminMessage(error.message || "\u5132\u5b58\u5931\u6557\u3002", "err");
+      }
+    }
+
+    async function releaseSlot(slotId) {
+      const slot = allSlots.find(item => item.slotId === slotId);
+      if (!slot) return;
+
+      if (!confirm(`\u78ba\u5b9a\u8981\u91cb\u51fa\u9019\u500b\u6642\u6bb5\uff1f\n\n${slot.dateLabel} ${slot.session} ${slot.time}\n${slot.name1 || ""}\u3001${slot.name2 || ""}`)) {
+        return;
+      }
+
+      try {
+        await updateDoc(doc(db, "slots", slotId), {
+          status: AVAILABLE,
+          name1: "",
+          name2: "",
+          bookedAt: null
+        });
+        setAdminMessage("\u6642\u6bb5\u5df2\u91cb\u51fa\u70ba\u53ef\u5831\u540d\u3002", "ok");
+      } catch (error) {
+        setAdminMessage(error.message || "\u91cb\u51fa\u5931\u6557\u3002", "err");
+      }
+    }
+
+    async function moveBooking() {
+      const fromId = document.getElementById("moveFrom").value;
+      const toId = document.getElementById("moveTo").value;
+      const fromSlot = allSlots.find(slot => slot.slotId === fromId);
+      const toSlot = allSlots.find(slot => slot.slotId === toId);
+
+      if (!fromSlot || !toSlot) {
+        setAdminMessage("\u8acb\u9078\u64c7\u8981\u79fb\u8f49\u7684\u5831\u540d\u8207\u65b0\u6642\u6bb5\u3002", "err");
+        return;
+      }
+
+      if (!confirm(`\u78ba\u5b9a\u8981\u79fb\u8f49\u5831\u540d\uff1f\n\n\u539f\u6642\u6bb5\uff1a${fromSlot.dateLabel} ${fromSlot.session} ${fromSlot.time}\n\u65b0\u6642\u6bb5\uff1a${toSlot.dateLabel} ${toSlot.session} ${toSlot.time}\n\u4eba\u54e1\uff1a${fromSlot.name1}\u3001${fromSlot.name2}`)) {
+        return;
+      }
+
+      try {
+        await runTransaction(db, async transaction => {
+          const fromRef = doc(db, "slots", fromId);
+          const toRef = doc(db, "slots", toId);
+          const fromDoc = await transaction.get(fromRef);
+          const toDoc = await transaction.get(toRef);
+
+          if (!fromDoc.exists() || !toDoc.exists()) throw new Error("\u627e\u4e0d\u5230\u6642\u6bb5\u8cc7\u6599\u3002");
+
+          const source = fromDoc.data();
+          const target = toDoc.data();
+
+          if (source.status !== BOOKED) throw new Error("\u539f\u6642\u6bb5\u4e0d\u662f\u5df2\u5831\u540d\u72c0\u614b\u3002");
+          if (target.status !== AVAILABLE) throw new Error("\u65b0\u6642\u6bb5\u5df2\u88ab\u9810\u7d04\u3002");
+
+          transaction.update(toRef, {
+            status: BOOKED,
+            name1: source.name1 || "",
+            name2: source.name2 || "",
+            bookedAt: serverTimestamp()
+          });
+
+          transaction.update(fromRef, {
+            status: AVAILABLE,
+            name1: "",
+            name2: "",
+            bookedAt: null
+          });
+        });
+
+        setAdminMessage("\u5831\u540d\u6642\u6bb5\u5df2\u79fb\u8f49\u3002", "ok");
+      } catch (error) {
+        setAdminMessage(error.message || "\u79fb\u8f49\u5931\u6557\u3002", "err");
+      }
+    }
+
+    function safeId(value) {
+      return value.replace(/[^a-zA-Z0-9]/g, "-");
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function setLoginMessage(text, type) {
+      const msg = document.getElementById("loginMessage");
+      msg.textContent = text;
+      msg.className = `msg ${type || ""}`;
+    }
+
+    function setAdminMessage(text, type) {
+      const msg = document.getElementById("adminMessage");
+      msg.textContent = text;
+      msg.className = `msg ${type || ""}`;
+    }
+  </script>
+</body>
+</html>
