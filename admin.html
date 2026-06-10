@@ -209,6 +209,7 @@
           </div>
         </div>
         <button class="ghost" onclick="logout()">&#30331;&#20986;&#31649;&#29702;&#38913;</button>
+        <button class="primary" onclick="exportCsv()" style="margin-top:10px;">&#21295;&#20986; CSV</button>
         <div id="adminMessage" class="msg"></div>
       </section>
 
@@ -269,6 +270,7 @@
     window.releaseSlot = releaseSlot;
     window.saveNames = saveNames;
     window.moveBooking = moveBooking;
+    window.exportCsv = exportCsv;
 
     onAuthStateChanged(auth, user => {
       document.getElementById("loginCard").classList.toggle("hidden", !!user);
@@ -463,6 +465,48 @@
       }
     }
 
+    function exportCsv() {
+      if (allSlots.length === 0) {
+        setAdminMessage("\u76ee\u524d\u6c92\u6709\u8cc7\u6599\u53ef\u532f\u51fa\u3002", "err");
+        return;
+      }
+
+      const headers = [
+        "\u6642\u6bb5ID",
+        "\u6e2c\u9a57\u65e5\u671f",
+        "\u68af\u6b21",
+        "\u6e2c\u9a57\u6642\u9593",
+        "\u72c0\u614b",
+        "\u53d7\u6e2c\u4eba\u54e1\u59d3\u540d1",
+        "\u53d7\u6e2c\u4eba\u54e1\u59d3\u540d2",
+        "\u5831\u540d\u6642\u9593"
+      ];
+
+      const rows = allSlots.map(slot => [
+        slot.slotId || "",
+        slot.dateLabel || "",
+        slot.session || "",
+        slot.time || "",
+        slot.status || "",
+        slot.name1 || "",
+        slot.name2 || "",
+        formatBookedAt(slot.bookedAt)
+      ]);
+
+      const csv = [headers, ...rows]
+        .map(row => row.map(escapeCsv).join(","))
+        .join("\n");
+
+      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "\u7b2c\u56db\u5927\u968a\u6551\u8b77\u6280\u8853\u666e\u6e2c\u5831\u540d\u8cc7\u6599.csv";
+      link.click();
+      URL.revokeObjectURL(url);
+      setAdminMessage("CSV \u5df2\u532f\u51fa\u3002", "ok");
+    }
+
     function safeId(value) {
       return value.replace(/[^a-zA-Z0-9]/g, "-");
     }
@@ -474,6 +518,26 @@
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#039;");
+    }
+
+    function escapeCsv(value) {
+      const text = String(value ?? "");
+      return `"${text.replaceAll('"', '""')}"`;
+    }
+
+    function formatBookedAt(value) {
+      if (!value) return "";
+      const date = value.toDate ? value.toDate() : new Date(value);
+      if (isNaN(date.getTime())) return "";
+
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, "0");
+      const dd = String(date.getDate()).padStart(2, "0");
+      const hh = String(date.getHours()).padStart(2, "0");
+      const min = String(date.getMinutes()).padStart(2, "0");
+      const ss = String(date.getSeconds()).padStart(2, "0");
+
+      return `${yyyy}/${mm}/${dd} ${hh}:${min}:${ss}`;
     }
 
     function setLoginMessage(text, type) {

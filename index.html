@@ -9,7 +9,8 @@
     * { box-sizing:border-box; }
     body { margin:0; font-family:Arial,"Noto Sans TC",sans-serif; background:var(--paper); color:var(--black); }
     header { background:var(--black); color:white; border-bottom:5px solid var(--yellow); padding:16px 14px; }
-    .brand { display:flex; align-items:center; gap:12px; max-width:520px; margin:0 auto; }
+    .brand { display:flex; align-items:center; gap:12px; max-width:520px; margin:0 auto; position:relative; padding-right:82px; }
+    .admin-link { position:absolute; top:0; right:0; min-height:34px; border:1px solid var(--yellow); border-radius:8px; padding:7px 9px; color:var(--yellow-soft); text-decoration:none; font-size:13px; font-weight:900; line-height:1.2; }
     .logo { width:72px; height:auto; flex:0 0 auto; }
     h1 { margin:0; font-size:21px; line-height:1.35; }
     .hint { margin-top:6px; color:var(--yellow-soft); font-size:14px; line-height:1.45; }
@@ -40,7 +41,7 @@
   </style>
 </head>
 <body>
-  <header><div class="brand"><img class="logo" src="assets/logo.png" alt="logo"><div><h1>&#31532;&#22235;&#22823;&#38538;&#25937;&#35703;&#25216;&#34899;&#26222;&#28204;&#22577;&#21517;&#31995;&#32113;</h1><div class="hint">&#35531;&#36984;&#25799;&#26085;&#26399;&#33287;&#26178;&#27573;&#65292;&#24050;&#38928;&#32004;&#26178;&#27573;&#28961;&#27861;&#20877;&#27425;&#36984;&#21462;&#12290;</div></div></div></header>
+  <header><div class="brand"><a class="admin-link" href="admin.html">&#31649;&#29702;&#32773;<br>&#38913;&#38754;</a><img class="logo" src="assets/logo.png" alt="logo"><div><h1>&#31532;&#22235;&#22823;&#38538;&#25937;&#35703;&#25216;&#34899;&#26222;&#28204;&#22577;&#21517;&#31995;&#32113;</h1><div class="hint">&#35531;&#36984;&#25799;&#26085;&#26399;&#33287;&#26178;&#27573;&#65292;&#24050;&#38928;&#32004;&#26178;&#27573;&#28961;&#27861;&#20877;&#27425;&#36984;&#21462;&#12290;</div></div></div></header>
   <main>
     <section class="block"><p class="label">&#28204;&#39511;&#26085;&#26399;</p><div id="dateButtons" class="dates"></div></section>
     <section class="block"><p class="label">&#24050;&#36984;&#25799;&#28204;&#39511;&#26178;&#38291;</p><input id="selectedTime" class="chosen" type="text" readonly placeholder="&#35531;&#40670;&#36984;&#19979;&#26041;&#21487;&#22577;&#21517;&#26178;&#27573;"><div class="session-head">&#19978;&#21320;&#22580;&#27425; <span>09:00 - 12:00</span></div><div id="morningSlots" class="slots"></div><div class="session-head">&#19979;&#21320;&#22580;&#27425; <span>13:00 - 17:00</span></div><div id="afternoonSlots" class="slots"></div></section>
