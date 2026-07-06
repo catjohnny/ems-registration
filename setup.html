@@ -31,9 +31,9 @@
 
     const dates = [
       { id: "2026-07-01", label: "7月1日" },
-      { id: "2026-07-11", label: "7月11日" },
       { id: "2026-07-20", label: "7月20日" },
-      { id: "2026-07-21", label: "7月21日" }
+      { id: "2026-07-21", label: "7月21日" },
+      { id: "2026-08-01", label: "8月1日" }
     ];
 
     function buildTimes(start, end) {
@@ -66,7 +66,7 @@
       let count = 0;
 
       dates.forEach(date => {
-        buildTimes("09:00", "11:30").forEach(time => {
+        buildTimes("09:00", "12:15").forEach(time => {
           const slotId = `${date.id}_${time}`;
           batch.set(doc(db, "slots", slotId), {
             slotId,
@@ -82,7 +82,7 @@
           count++;
         });
 
-        buildTimes("13:00", "16:00").forEach(time => {
+        buildTimes("13:00", "17:15").forEach(time => {
           const slotId = `${date.id}_${time}`;
           batch.set(doc(db, "slots", slotId), {
             slotId,
