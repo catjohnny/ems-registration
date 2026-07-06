@@ -138,7 +138,7 @@
   <header>
     <div class="wrap">
       <h1>日期調整工具</h1>
-      <div class="hint">臨時工具：刪除 7月11日所有時段，新增 8月1日空白可報名時段。</div>
+      <div class="hint">臨時工具：刪除 8月1日所有時段，新增 8月3日空白可報名時段。</div>
     </div>
   </header>
 
@@ -158,10 +158,10 @@
       <section class="card">
         <label>本工具會執行的內容</label>
         <ul>
-          <li>刪除 Firestore slots 內 dateId 為 2026-07-11 的所有文件。</li>
-          <li>新增 2026-08-01、8月1日的空白可報名時段。</li>
-          <li>8月1日時段為 09:00 至 12:00、13:00 至 17:00，每 15 分鐘一梯次。</li>
-          <li>若 8月1日某時段已存在，會保留原資料，不會覆蓋。</li>
+          <li>刪除 Firestore slots 內 dateId 為 2026-08-01 的所有文件。</li>
+          <li>新增 2026-08-03、8月3日的空白可報名時段。</li>
+          <li>8月3日時段為 09:00 至 12:00、13:00 至 17:00，每 15 分鐘一梯次。</li>
+          <li>若 8月3日某時段已存在，會保留原資料，不會覆蓋。</li>
           <li>其他日期資料不會變更。</li>
         </ul>
       </section>
@@ -205,9 +205,9 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    const OLD_DATE_ID = "2026-07-11";
-    const NEW_DATE_ID = "2026-08-01";
-    const NEW_DATE_LABEL = "8月1日";
+    const OLD_DATE_ID = "2026-08-01";
+    const NEW_DATE_ID = "2026-08-03";
+    const NEW_DATE_LABEL = "8月3日";
     const AVAILABLE = "可報名";
 
     document.getElementById("loginBtn").addEventListener("click", login);
@@ -248,8 +248,8 @@
 
       const confirmed = confirm(
         "確定要執行日期調整？\n\n" +
-        "1. 刪除 7月11日所有時段與名單。\n" +
-        "2. 新增 8月1日空白可報名時段。\n" +
+        "1. 刪除 8月1日所有時段與名單。\n" +
+        "2. 新增 8月3日空白可報名時段。\n" +
         "3. 其他日期不變。"
       );
 
@@ -297,7 +297,7 @@
         if (pending > 0) await batch.commit();
 
         setToolMessage(
-          `完成。\n刪除 7月11日時段：${deleted} 筆\n新增 8月1日時段：${created} 筆\n保留既有 8月1日時段：${existingNewSlotIds.size} 筆`,
+          `完成。\n刪除 8月1日時段：${deleted} 筆\n新增 8月3日時段：${created} 筆\n保留既有 8月3日時段：${existingNewSlotIds.size} 筆`,
           "ok"
         );
       } catch (error) {
