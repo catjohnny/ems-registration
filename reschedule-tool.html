@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>日期調整工具</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root {
+      --black: #111;
+      --yellow: #c8b36a;
+      --yellow-soft: #eadca7;
+      --paper: #f3efe2;
+      --card: #fffaf0;
+      --line: #d8c98d;
+      --danger: #b42318;
+      --ok: #137a3a;
+      --muted: #756f60;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, "Noto Sans TC", sans-serif;
+      background: var(--paper);
+      color: var(--black);
+    }
+
+    header {
+      background: var(--black);
+      color: white;
+      border-bottom: 5px solid var(--yellow);
+      padding: 16px 14px;
+    }
+
+    .wrap {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 14px 12px 40px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.35;
+    }
+
+    .hint {
+      margin-top: 6px;
+      color: var(--yellow-soft);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+
+    label {
+      display: block;
+      margin: 0 0 7px;
+      font-weight: 900;
+    }
+
+    input {
+      width: 100%;
+      min-height: 48px;
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      font-size: 16px;
+      background: white;
+    }
+
+    button {
+      width: 100%;
+      min-height: 48px;
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-family: inherit;
+      font-size: 16px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      background: #8a8372;
+      cursor: wait;
+    }
+
+    .primary {
+      background: var(--black);
+      color: var(--yellow-soft);
+    }
+
+    .danger {
+      background: var(--danger);
+      color: white;
+    }
+
+    .ghost {
+      border: 1px solid var(--line);
+      background: white;
+      color: var(--black);
+      margin-top: 10px;
+    }
+
+    .msg {
+      min-height: 24px;
+      margin-top: 8px;
+      font-weight: 900;
+      line-height: 1.45;
+      text-align: center;
+      white-space: pre-wrap;
+    }
+
+    .ok { color: var(--ok); }
+    .err { color: var(--danger); }
+
+    ul {
+      margin: 8px 0 0;
+      padding-left: 20px;
+      line-height: 1.7;
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>日期調整工具</h1>
+      <div class="hint">臨時工具：刪除 7月11日所有時段，新增 8月1日空白可報名時段。</div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section id="loginCard" class="card">
+      <label for="email">管理者 Email</label>
+      <input id="email" type="email" autocomplete="username">
+
+      <label for="password">密碼</label>
+      <input id="password" type="password" autocomplete="current-password">
+
+      <button class="primary" id="loginBtn">登入</button>
+      <div id="loginMessage" class="msg"></div>
+    </section>
+
+    <section id="toolArea" class="hidden">
+      <section class="card">
+        <label>本工具會執行的內容</label>
+        <ul>
+          <li>刪除 Firestore slots 內 dateId 為 2026-07-11 的所有文件。</li>
+          <li>新增 2026-08-01、8月1日的空白可報名時段。</li>
+          <li>8月1日時段為 09:00 至 12:00、13:00 至 17:00，每 15 分鐘一梯次。</li>
+          <li>若 8月1日某時段已存在，會保留原資料，不會覆蓋。</li>
+          <li>其他日期資料不會變更。</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <button class="danger" id="runBtn">執行日期調整</button>
+        <button class="ghost" id="logoutBtn">登出</button>
+        <div id="toolMessage" class="msg"></div>
+      </section>
+    </section>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
+    import {
+      getAuth,
+      signInWithEmailAndPassword,
+      signOut,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
+    import {
+      getFirestore,
+      collection,
+      doc,
+      getDocs,
+      query,
+      where,
+      writeBatch
+    } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDY2SAXwWPxgFWaUHU7h1ARjwtgo16G2Yo",
+      authDomain: "emstest-e3ec1.firebaseapp.com",
+      projectId: "emstest-e3ec1",
+      storageBucket: "emstest-e3ec1.firebasestorage.app",
+      messagingSenderId: "887383383886",
+      appId: "1:887383383886:web:452e3a1e8f756119f7c81f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const OLD_DATE_ID = "2026-07-11";
+    const NEW_DATE_ID = "2026-08-01";
+    const NEW_DATE_LABEL = "8月1日";
+    const AVAILABLE = "可報名";
+
+    document.getElementById("loginBtn").addEventListener("click", login);
+    document.getElementById("logoutBtn").addEventListener("click", logout);
+    document.getElementById("runBtn").addEventListener("click", runReschedule);
+
+    onAuthStateChanged(auth, user => {
+      document.getElementById("loginCard").classList.toggle("hidden", !!user);
+      document.getElementById("toolArea").classList.toggle("hidden", !user);
+      setLoginMessage("", "");
+      setToolMessage(user ? `已登入：${user.email}` : "", "");
+    });
+
+    async function login() {
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+
+      if (!email || !password) {
+        setLoginMessage("請輸入 Email 與密碼。", "err");
+        return;
+      }
+
+      setLoginMessage("登入中...", "");
+
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+      } catch (error) {
+        setLoginMessage(error.message || "登入失敗。", "err");
+      }
+    }
+
+    async function logout() {
+      await signOut(auth);
+    }
+
+    async function runReschedule() {
+      const runBtn = document.getElementById("runBtn");
+
+      const confirmed = confirm(
+        "確定要執行日期調整？\n\n" +
+        "1. 刪除 7月11日所有時段與名單。\n" +
+        "2. 新增 8月1日空白可報名時段。\n" +
+        "3. 其他日期不變。"
+      );
+
+      if (!confirmed) {
+        setToolMessage("已取消，沒有變更資料。", "err");
+        return;
+      }
+
+      runBtn.disabled = true;
+      setToolMessage("處理中，請勿關閉頁面...", "");
+
+      try {
+        const oldSnapshot = await getDocs(query(collection(db, "slots"), where("dateId", "==", OLD_DATE_ID)));
+        const newSnapshot = await getDocs(query(collection(db, "slots"), where("dateId", "==", NEW_DATE_ID)));
+        const existingNewSlotIds = new Set(newSnapshot.docs.map(item => item.id));
+        const newSlots = buildNewDateSlots().filter(slot => !existingNewSlotIds.has(slot.slotId));
+
+        let batch = writeBatch(db);
+        let pending = 0;
+        let deleted = 0;
+        let created = 0;
+
+        for (const item of oldSnapshot.docs) {
+          batch.delete(item.ref);
+          pending++;
+          deleted++;
+          if (pending === 450) {
+            await batch.commit();
+            batch = writeBatch(db);
+            pending = 0;
+          }
+        }
+
+        for (const slot of newSlots) {
+          batch.set(doc(db, "slots", slot.slotId), slot);
+          pending++;
+          created++;
+          if (pending === 450) {
+            await batch.commit();
+            batch = writeBatch(db);
+            pending = 0;
+          }
+        }
+
+        if (pending > 0) await batch.commit();
+
+        setToolMessage(
+          `完成。\n刪除 7月11日時段：${deleted} 筆\n新增 8月1日時段：${created} 筆\n保留既有 8月1日時段：${existingNewSlotIds.size} 筆`,
+          "ok"
+        );
+      } catch (error) {
+        setToolMessage(error.message || "日期調整失敗。", "err");
+      } finally {
+        runBtn.disabled = false;
+      }
+    }
+
+    function buildNewDateSlots() {
+      const slots = [];
+      addSlots(slots, "上午", "09:00", "12:00");
+      addSlots(slots, "下午", "13:00", "17:00");
+      return slots;
+    }
+
+    function addSlots(slots, session, start, end) {
+      let current = toMinutes(start);
+      const endMinutes = toMinutes(end);
+
+      while (current <= endMinutes) {
+        const time = toTime(current);
+        const slotId = `${NEW_DATE_ID}_${time}`;
+        slots.push({
+          slotId,
+          dateId: NEW_DATE_ID,
+          dateLabel: NEW_DATE_LABEL,
+          session,
+          time,
+          status: AVAILABLE,
+          name1: "",
+          name2: "",
+          bookedAt: null
+        });
+        current += 15;
+      }
+    }
+
+    function toMinutes(time) {
+      const [hour, minute] = time.split(":").map(Number);
+      return hour * 60 + minute;
+    }
+
+    function toTime(minutes) {
+      const hour = String(Math.floor(minutes / 60)).padStart(2, "0");
+      const minute = String(minutes % 60).padStart(2, "0");
+      return `${hour}:${minute}`;
+    }
+
+    function setLoginMessage(text, type) {
+      const msg = document.getElementById("loginMessage");
+      msg.textContent = text;
+      msg.className = `msg ${type || ""}`;
+    }
+
+    function setToolMessage(text, type) {
+      const msg = document.getElementById("toolMessage");
+      msg.textContent = text;
+      msg.className = `msg ${type || ""}`;
+    }
+  </script>
+</body>
+</html>
