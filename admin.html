@@ -208,9 +208,15 @@
             </select>
           </div>
         </div>
+        <button class="ghost" onclick="location.href='index.html'">回到報名網頁</button>
         <button class="ghost" onclick="logout()">&#30331;&#20986;&#31649;&#29702;&#38913;</button>
         <button class="primary" onclick="exportCsv()" style="margin-top:10px;">&#21295;&#20986; CSV</button>
         <div id="adminMessage" class="msg"></div>
+      </section>
+
+      <section class="card">
+        <label>取消報名申請審核</label>
+        <div class="slot-list" id="cancelRequestList"></div>
       </section>
 
       <section class="card">
@@ -241,7 +247,6 @@
       doc,
       onSnapshot,
       runTransaction,
-      updateDoc,
       serverTimestamp
     } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
 
@@ -263,11 +268,15 @@
 
     let allSlots = [];
     let unsubscribeSlots = null;
+    let allCancelRequests = [];
+    let unsubscribeCancelRequests = null;
 
     window.login = login;
     window.logout = logout;
     window.renderSlots = renderSlots;
     window.releaseSlot = releaseSlot;
+    window.approveCancelRequest = approveCancelRequest;
+    window.rejectCancelRequest = rejectCancelRequest;
     window.saveNames = saveNames;
     window.moveBooking = moveBooking;
     window.exportCsv = exportCsv;
@@ -278,9 +287,14 @@
 
       if (user) {
         listenSlots();
+        listenCancelRequests();
       } else if (unsubscribeSlots) {
         unsubscribeSlots();
         unsubscribeSlots = null;
+        if (unsubscribeCancelRequests) {
+          unsubscribeCancelRequests();
+          unsubscribeCancelRequests = null;
+        }
       }
     });
 
@@ -314,8 +328,24 @@
         renderFilters();
         renderSlots();
         renderMoveSelectors();
+        renderCancelRequests();
       }, error => {
         setAdminMessage(error.message || "\u8b80\u53d6\u8cc7\u6599\u5931\u6557\u3002", "err");
+      });
+    }
+
+    function listenCancelRequests() {
+      if (unsubscribeCancelRequests) unsubscribeCancelRequests();
+
+      unsubscribeCancelRequests = onSnapshot(collection(db, "cancelRequests"), snapshot => {
+        allCancelRequests = snapshot.docs.map(item => ({ requestId: item.id, ...item.data() })).sort((a, b) => {
+          const aTime = a.requestedAt && a.requestedAt.toMillis ? a.requestedAt.toMillis() : 0;
+          const bTime = b.requestedAt && b.requestedAt.toMillis ? b.requestedAt.toMillis() : 0;
+          return bTime - aTime;
+        });
+        renderCancelRequests();
+      }, error => {
+        setAdminMessage(error.message || "讀取取消申請失敗。", "err");
       });
     }
 
@@ -362,6 +392,29 @@
       `).join("") || `<section class="card">\u6c92\u6709\u7b26\u5408\u689d\u4ef6\u7684\u8cc7\u6599\u3002</section>`;
     }
 
+    function renderCancelRequests() {
+      const list = document.getElementById("cancelRequestList");
+      if (!list) return;
+      const pending = allCancelRequests.filter(item => item.status === "pending");
+      list.innerHTML = pending.map(item => {
+        const slot = allSlots.find(current => current.slotId === item.slotId);
+        const slotText = slot ? `${slot.status} - ${escapeHtml(slot.name1 || "")}、${escapeHtml(slot.name2 || "")}` : "找不到目前時段資料";
+        return `
+          <article class="slot-item">
+            <div class="slot-top">
+              <span>${escapeHtml(item.dateLabel || "")} ${escapeHtml(item.session || "")} ${escapeHtml(item.time || "")}</span>
+              <span>待審核</span>
+            </div>
+            <div class="names">申請取消：${escapeHtml(item.name1 || "")}、${escapeHtml(item.name2 || "")}<br>目前狀態：${slotText}</div>
+            <div class="actions">
+              <button class="secondary" onclick="approveCancelRequest('${item.requestId}')">同意取消並釋出</button>
+              <button class="danger" onclick="rejectCancelRequest('${item.requestId}')">拒絕取消</button>
+            </div>
+          </article>
+        `;
+      }).join("") || `<section class="slot-item">目前沒有待審核取消申請。</section>`;
+    }
+
     function renderMoveSelectors() {
       const from = document.getElementById("moveFrom");
       const to = document.getElementById("moveTo");
@@ -380,12 +433,40 @@
         setAdminMessage("\u8acb\u586b\u5beb\u5169\u4f4d\u59d3\u540d\u3002", "err");
         return;
       }
+      if (name1 === name2) {
+        setAdminMessage("兩位姓名不可相同。", "err");
+        return;
+      }
 
       try {
-        await updateDoc(doc(db, "slots", slotId), {
-          status: BOOKED,
-          name1,
-          name2
+        await runTransaction(db, async transaction => {
+          const slotRef = doc(db, "slots", slotId);
+          const slotDoc = await transaction.get(slotRef);
+          if (!slotDoc.exists()) throw new Error("找不到時段資料。");
+          const current = slotDoc.data();
+          const oldGroupKey = current.groupKey || buildGroupKey(current.name1 || "", current.name2 || "");
+          const newGroupKey = buildGroupKey(name1, name2);
+          const newGroupRef = doc(db, "bookingGroups", newGroupKey);
+          const newGroupDoc = await transaction.get(newGroupRef);
+          if (newGroupDoc.exists() && newGroupDoc.data().slotId !== slotId) throw new Error("此兩人組別已完成報名，無法重複報名。");
+          if (oldGroupKey && oldGroupKey !== newGroupKey) transaction.delete(doc(db, "bookingGroups", oldGroupKey));
+          transaction.update(slotRef, {
+            status: BOOKED,
+            name1,
+            name2,
+            groupKey: newGroupKey
+          });
+          transaction.set(newGroupRef, {
+            groupKey: newGroupKey,
+            name1,
+            name2,
+            slotId,
+            dateId: current.dateId || "",
+            dateLabel: current.dateLabel || "",
+            session: current.session || "",
+            time: current.time || "",
+            createdAt: serverTimestamp()
+          });
         });
         setAdminMessage("\u59d3\u540d\u5df2\u5132\u5b58\u3002", "ok");
       } catch (error) {
@@ -402,11 +483,20 @@
       }
 
       try {
-        await updateDoc(doc(db, "slots", slotId), {
-          status: AVAILABLE,
-          name1: "",
-          name2: "",
-          bookedAt: null
+        await runTransaction(db, async transaction => {
+          const slotRef = doc(db, "slots", slotId);
+          const slotDoc = await transaction.get(slotRef);
+          if (!slotDoc.exists()) throw new Error("找不到時段資料。");
+          const current = slotDoc.data();
+          const groupKey = current.groupKey || buildGroupKey(current.name1 || "", current.name2 || "");
+          transaction.update(slotRef, {
+            status: AVAILABLE,
+            name1: "",
+            name2: "",
+            groupKey: "",
+            bookedAt: null
+          });
+          if (groupKey) transaction.delete(doc(db, "bookingGroups", groupKey));
         });
         setAdminMessage("\u6642\u6bb5\u5df2\u91cb\u51fa\u70ba\u53ef\u5831\u540d\u3002", "ok");
       } catch (error) {
@@ -440,6 +530,7 @@
 
           const source = fromDoc.data();
           const target = toDoc.data();
+          const groupKey = source.groupKey || buildGroupKey(source.name1 || "", source.name2 || "");
 
           if (source.status !== BOOKED) throw new Error("\u539f\u6642\u6bb5\u4e0d\u662f\u5df2\u5831\u540d\u72c0\u614b\u3002");
           if (target.status !== AVAILABLE) throw new Error("\u65b0\u6642\u6bb5\u5df2\u88ab\u9810\u7d04\u3002");
@@ -448,6 +539,7 @@
             status: BOOKED,
             name1: source.name1 || "",
             name2: source.name2 || "",
+            groupKey,
             bookedAt: serverTimestamp()
           });
 
@@ -455,13 +547,93 @@
             status: AVAILABLE,
             name1: "",
             name2: "",
+            groupKey: "",
             bookedAt: null
           });
+          if (groupKey) {
+            transaction.set(doc(db, "bookingGroups", groupKey), {
+              groupKey,
+              name1: source.name1 || "",
+              name2: source.name2 || "",
+              slotId: toId,
+              dateId: target.dateId || "",
+              dateLabel: target.dateLabel || "",
+              session: target.session || "",
+              time: target.time || "",
+              createdAt: serverTimestamp()
+            });
+          }
         });
 
         setAdminMessage("\u5831\u540d\u6642\u6bb5\u5df2\u79fb\u8f49\u3002", "ok");
       } catch (error) {
         setAdminMessage(error.message || "\u79fb\u8f49\u5931\u6557\u3002", "err");
+      }
+    }
+
+    async function approveCancelRequest(requestId) {
+      const request = allCancelRequests.find(item => item.requestId === requestId);
+      if (!request) return;
+      if (!confirm(`確定同意取消並釋出時段？\n\n${request.dateLabel} ${request.session} ${request.time}\n${request.name1}、${request.name2}`)) return;
+
+      try {
+        await runTransaction(db, async transaction => {
+          const requestRef = doc(db, "cancelRequests", requestId);
+          const slotRef = doc(db, "slots", request.slotId);
+          const requestDoc = await transaction.get(requestRef);
+          const slotDoc = await transaction.get(slotRef);
+          if (!requestDoc.exists()) throw new Error("找不到取消申請。");
+          if (!slotDoc.exists()) throw new Error("找不到時段資料。");
+          const currentRequest = requestDoc.data();
+          const currentSlot = slotDoc.data();
+          if (currentRequest.status !== "pending") throw new Error("此申請已審核，不能重複處理。");
+          if (currentSlot.status !== BOOKED) throw new Error("此時段目前不是已報名狀態，無法同意取消。");
+          const groupKey = currentRequest.groupKey || buildGroupKey(currentRequest.name1 || "", currentRequest.name2 || "");
+          if (buildGroupKey(currentSlot.name1 || "", currentSlot.name2 || "") !== groupKey) throw new Error("目前時段姓名已變更，請重新確認。");
+          const user = auth.currentUser;
+          transaction.update(slotRef, {
+            status: AVAILABLE,
+            name1: "",
+            name2: "",
+            groupKey: "",
+            bookedAt: null
+          });
+          transaction.delete(doc(db, "bookingGroups", groupKey));
+          transaction.update(requestRef, {
+            status: "approved",
+            reviewedAt: serverTimestamp(),
+            reviewedBy: user ? user.uid : "",
+            reviewedByEmail: user ? user.email : ""
+          });
+        });
+        setAdminMessage("已同意取消並釋出時段。", "ok");
+      } catch (error) {
+        setAdminMessage(error.message || "審核失敗。", "err");
+      }
+    }
+
+    async function rejectCancelRequest(requestId) {
+      const request = allCancelRequests.find(item => item.requestId === requestId);
+      if (!request) return;
+      if (!confirm(`確定拒絕此取消申請？\n\n${request.dateLabel} ${request.session} ${request.time}\n${request.name1}、${request.name2}`)) return;
+
+      try {
+        await runTransaction(db, async transaction => {
+          const requestRef = doc(db, "cancelRequests", requestId);
+          const requestDoc = await transaction.get(requestRef);
+          if (!requestDoc.exists()) throw new Error("找不到取消申請。");
+          if (requestDoc.data().status !== "pending") throw new Error("此申請已審核，不能重複處理。");
+          const user = auth.currentUser;
+          transaction.update(requestRef, {
+            status: "rejected",
+            reviewedAt: serverTimestamp(),
+            reviewedBy: user ? user.uid : "",
+            reviewedByEmail: user ? user.email : ""
+          });
+        });
+        setAdminMessage("已拒絕取消申請。", "ok");
+      } catch (error) {
+        setAdminMessage(error.message || "審核失敗。", "err");
       }
     }
 
@@ -509,6 +681,10 @@
 
     function safeId(value) {
       return value.replace(/[^a-zA-Z0-9]/g, "-");
+    }
+
+    function buildGroupKey(name1, name2) {
+      return [String(name1 || "").trim(), String(name2 || "").trim()].sort().join("__");
     }
 
     function escapeHtml(value) {

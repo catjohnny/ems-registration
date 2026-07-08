@@ -30,12 +30,13 @@
     .slot-btn.active { background:var(--black); color:white; border-color:var(--black); box-shadow:0 0 0 3px var(--yellow); }
     .slot-btn.active small { color:var(--yellow-soft); }
     .slot-btn.booked { background:var(--booked); color:#777061; border-color:#c7bea1; cursor:not-allowed; }
-    input { width:100%; min-height:54px; margin-bottom:12px; padding:12px; border:1px solid var(--line); border-radius:8px; font-size:17px; background:white; }
+    input,select { width:100%; min-height:54px; margin-bottom:12px; padding:12px; border:1px solid var(--line); border-radius:8px; font-size:17px; background:white; }
     input:focus { outline:3px solid var(--yellow); border-color:var(--black); }
     .bottom { position:fixed; left:0; right:0; bottom:0; padding:10px 12px 14px; background:rgba(243,239,226,.97); border-top:1px solid var(--line); }
     .bottom-inner { max-width:520px; margin:0 auto; }
-    .submit { width:100%; min-height:56px; border:0; border-radius:8px; background:var(--black); color:var(--yellow-soft); font-size:18px; font-weight:900; cursor:pointer; }
-    .submit:disabled { background:#7d7769; cursor:wait; }
+    .submit,.cancel-submit { width:100%; min-height:56px; border:0; border-radius:8px; background:var(--black); color:var(--yellow-soft); font-size:18px; font-weight:900; cursor:pointer; }
+    .cancel-submit { background:var(--danger); color:white; }
+    .submit:disabled,.cancel-submit:disabled { background:#7d7769; cursor:wait; }
     .msg { display:block; min-height:22px; margin-top:8px; text-align:center; font-weight:900; line-height:1.45; }
     .msg.ok { color:var(--ok); } .msg.err { color:var(--danger); }
   </style>
@@ -46,6 +47,7 @@
     <section class="block"><p class="label">&#28204;&#39511;&#26085;&#26399;</p><div id="dateButtons" class="dates"></div></section>
     <section class="block"><p class="label">&#24050;&#36984;&#25799;&#28204;&#39511;&#26178;&#38291;</p><input id="selectedTime" class="chosen" type="text" readonly placeholder="&#35531;&#40670;&#36984;&#19979;&#26041;&#21487;&#22577;&#21517;&#26178;&#27573;"><div class="session-head">&#19978;&#21320;&#22580;&#27425; <span>09:00 - 12:00</span></div><div id="morningSlots" class="slots"></div><div class="session-head">&#19979;&#21320;&#22580;&#27425; <span>13:00 - 17:00</span></div><div id="afternoonSlots" class="slots"></div></section>
     <section class="block"><p class="label">&#21463;&#28204;&#20154;&#21729;&#22995;&#21517;1</p><input id="name1" type="text" placeholder="&#35531;&#36664;&#20837;&#22995;&#21517;"><p class="label">&#21463;&#28204;&#20154;&#21729;&#22995;&#21517;2</p><input id="name2" type="text" placeholder="&#35531;&#36664;&#20837;&#22995;&#21517;"></section>
+    <section class="block"><p class="label">申請取消報名</p><select id="cancelSlot"></select><p class="label">報名人員姓名1</p><input id="cancelName1" type="text" placeholder="請輸入姓名"><p class="label">報名人員姓名2</p><input id="cancelName2" type="text" placeholder="請輸入姓名"><button id="cancelRequestBtn" class="cancel-submit" onclick="submitCancelRequest()">送出取消申請</button><span id="cancelMessage" class="msg"></span></section>
   </main>
   <div class="bottom"><div class="bottom-inner"><button id="submitBtn" class="submit" onclick="submitBooking()">&#36865;&#20986;&#22577;&#21517;</button><span id="message" class="msg"></span></div></div>
   <script type="module">
@@ -66,13 +68,13 @@
     const BOOKED = "已預約";
     const MORNING = "上午";
     const AFTERNOON = "下午";
-    window.submitBooking = submitBooking; window.selectDate = selectDate; window.selectSlot = selectSlot;
+    window.submitBooking = submitBooking; window.submitCancelRequest = submitCancelRequest; window.selectDate = selectDate; window.selectSlot = selectSlot;
     onSnapshot(collection(db,"slots"), snapshot => {
       allSlots = snapshot.docs.map(item => item.data()).sort((a,b) => a.dateId !== b.dateId ? a.dateId.localeCompare(b.dateId) : a.time.localeCompare(b.time));
       if (allSlots.length === 0) { setMessage("目前沒有可報名時段，請先建立時段資料。", "err"); return; }
       const dates = [...new Set(allSlots.map(slot => slot.dateLabel))];
       if (!selectedDate || !dates.includes(selectedDate)) selectedDate = dates[0];
-      renderDates(); renderSlots(); setMessage("", "");
+      renderDates(); renderSlots(); renderCancelSelector(); setMessage("", "");
     }, error => setMessage(error.message || "讀取資料失敗，請稍後再試。", "err"));
     function renderDates() {
       const dates = [...new Set(allSlots.map(slot => slot.dateLabel))];
@@ -80,6 +82,11 @@
     }
     function selectDate(date) { selectedDate = date; selectedSlotId = ""; document.getElementById("selectedTime").value = ""; renderDates(); renderSlots(); setMessage("", ""); }
     function renderSlots() { renderSlotGroup("morningSlots", MORNING); renderSlotGroup("afternoonSlots", AFTERNOON); }
+    function renderCancelSelector() {
+      const booked = allSlots.filter(slot => slot.status === BOOKED);
+      const select = document.getElementById("cancelSlot");
+      select.innerHTML = booked.map(slot => `<option value="${slot.slotId}">${slot.dateLabel} ${slot.session} ${slot.time} - ${escapeHtml(slot.name1 || "")}、${escapeHtml(slot.name2 || "")}</option>`).join("") || `<option value="">目前沒有已報名時段</option>`;
+    }
     function bookedLabel(slot) {
       const names = [slot.name1, slot.name2].filter(Boolean).join("、");
       return names || BOOKED;
@@ -97,8 +104,10 @@
       const name1 = document.getElementById("name1").value.trim(), name2 = document.getElementById("name2").value.trim(), submitBtn = document.getElementById("submitBtn");
       if (!selectedSlotId) return setMessage("請先選擇測驗時段。", "err");
       if (!name1 || !name2) return setMessage("請填寫兩位受測人員姓名。", "err");
+      if (name1 === name2) return setMessage("兩位受測人員姓名不可相同。", "err");
       const slot = allSlots.find(item => item.slotId === selectedSlotId);
       if (!slot) return setMessage("找不到所選時段，請重新選擇。", "err");
+      const groupKey = buildGroupKey(name1, name2);
       const confirmed = window.confirm(`請確認報名資料是否正確：
 
 報名日期：${slot.dateLabel}
@@ -112,16 +121,94 @@
       try {
         await runTransaction(db, async transaction => {
           const slotRef = doc(db, "slots", selectedSlotId);
+          const groupRef = doc(db, "bookingGroups", groupKey);
           const slotDoc = await transaction.get(slotRef);
+          const groupDoc = await transaction.get(groupRef);
           if (!slotDoc.exists()) throw new Error("找不到此測驗時段。");
           if (slotDoc.data().status !== AVAILABLE) throw new Error("此時段已被預約，請重新選擇其他時段。");
-          transaction.update(slotRef, { status:BOOKED, name1, name2, bookedAt:serverTimestamp() });
+          if (groupDoc.exists()) throw new Error("此兩人組別已完成報名，無法重複報名。");
+          transaction.update(slotRef, { status:BOOKED, name1, name2, groupKey, bookedAt:serverTimestamp() });
+          transaction.set(groupRef, {
+            groupKey,
+            name1,
+            name2,
+            slotId: selectedSlotId,
+            dateId: slot.dateId || "",
+            dateLabel: slot.dateLabel || "",
+            session: slot.session || "",
+            time: slot.time || "",
+            createdAt: serverTimestamp()
+          });
         });
         window.alert("報名完成");
         document.getElementById("name1").value = ""; document.getElementById("name2").value = ""; document.getElementById("selectedTime").value = ""; selectedSlotId = ""; setMessage("報名成功。", "ok");
       } catch (error) { setMessage(error.message || "報名失敗，請重新選擇時段。", "err"); } finally { submitBtn.disabled = false; }
     }
+    async function submitCancelRequest() {
+      const slotId = document.getElementById("cancelSlot").value;
+      const name1 = document.getElementById("cancelName1").value.trim();
+      const name2 = document.getElementById("cancelName2").value.trim();
+      const cancelBtn = document.getElementById("cancelRequestBtn");
+      if (!slotId) return setCancelMessage("請先選擇要取消的報名時段。", "err");
+      if (!name1 || !name2) return setCancelMessage("請填寫兩位報名人員姓名。", "err");
+      if (name1 === name2) return setCancelMessage("兩位報名人員姓名不可相同。", "err");
+      const slot = allSlots.find(item => item.slotId === slotId);
+      if (!slot) return setCancelMessage("找不到所選時段，請重新整理頁面。", "err");
+      const groupKey = buildGroupKey(name1, name2);
+      if (slot.status !== BOOKED || buildGroupKey(slot.name1 || "", slot.name2 || "") !== groupKey) {
+        return setCancelMessage("姓名與該時段報名資料不符，請確認後再送出。", "err");
+      }
+      if (!confirm(`確定要送出取消申請？\n\n${slot.dateLabel} ${slot.session} ${slot.time}\n${name1}、${name2}\n\n送出後需由管理者審核。`)) return;
+
+      cancelBtn.disabled = true;
+      setCancelMessage("取消申請送出中...", "");
+      try {
+        await runTransaction(db, async transaction => {
+          const slotRef = doc(db, "slots", slotId);
+          const requestRef = doc(collection(db, "cancelRequests"));
+          const slotDoc = await transaction.get(slotRef);
+          if (!slotDoc.exists()) throw new Error("找不到此測驗時段。");
+          const current = slotDoc.data();
+          if (current.status !== BOOKED) throw new Error("此時段目前不是已報名狀態。");
+          if (buildGroupKey(current.name1 || "", current.name2 || "") !== groupKey) throw new Error("姓名與目前報名資料不符。");
+          transaction.set(requestRef, {
+            slotId,
+            dateId: current.dateId || "",
+            dateLabel: current.dateLabel || "",
+            session: current.session || "",
+            time: current.time || "",
+            name1,
+            name2,
+            groupKey,
+            status: "pending",
+            requestedAt: serverTimestamp(),
+            reviewedAt: null,
+            reviewedBy: "",
+            reviewedByEmail: ""
+          });
+        });
+        document.getElementById("cancelName1").value = "";
+        document.getElementById("cancelName2").value = "";
+        setCancelMessage("取消申請已送出，請等待管理者審核。", "ok");
+      } catch (error) {
+        setCancelMessage(error.message || "取消申請送出失敗。", "err");
+      } finally {
+        cancelBtn.disabled = false;
+      }
+    }
+    function buildGroupKey(name1, name2) {
+      return [String(name1 || "").trim(), String(name2 || "").trim()].sort().join("__");
+    }
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
     function setMessage(text, type) { const msg = document.getElementById("message"); msg.textContent = text; msg.className = `msg ${type || ""}`; }
+    function setCancelMessage(text, type) { const msg = document.getElementById("cancelMessage"); msg.textContent = text; msg.className = `msg ${type || ""}`; }
   </script>
 </body>
 </html>

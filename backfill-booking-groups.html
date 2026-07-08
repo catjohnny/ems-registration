@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>補建報名組別索引</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { margin:0; font-family:Arial,"Noto Sans TC",sans-serif; background:#f3efe2; color:#111; }
+    main { max-width:680px; margin:0 auto; padding:20px 12px; }
+    .card { background:#fffaf0; border:1px solid #d8c98d; border-radius:8px; padding:14px; margin-bottom:12px; }
+    input { width:100%; min-height:48px; margin-bottom:12px; padding:10px 12px; border:1px solid #d8c98d; border-radius:8px; font-size:16px; }
+    button { width:100%; min-height:48px; border:0; border-radius:8px; padding:10px 12px; background:#111; color:#eadca7; font-size:16px; font-weight:900; cursor:pointer; }
+    button:disabled { background:#8a8372; cursor:wait; }
+    .danger { background:#b42318; color:white; }
+    .msg { white-space:pre-wrap; font-weight:900; line-height:1.5; }
+    .hidden { display:none; }
+  </style>
+</head>
+<body>
+  <main>
+    <section id="loginCard" class="card">
+      <h1>補建報名組別索引</h1>
+      <p>此工具會掃描 slots 內所有已報名資料，建立 bookingGroups 防重索引。</p>
+      <input id="email" type="email" placeholder="管理者 Email" autocomplete="username">
+      <input id="password" type="password" placeholder="密碼" autocomplete="current-password">
+      <button id="loginBtn">登入</button>
+      <div id="loginMessage" class="msg"></div>
+    </section>
+
+    <section id="toolArea" class="card hidden">
+      <p>執行前請先確認已匯出 CSV 備份。若發現相同兩人組已重複出現在多個時段，工具會列出衝突並停止建立。</p>
+      <button id="runBtn" class="danger">補建 bookingGroups 索引</button>
+      <button id="logoutBtn" style="margin-top:10px;">登出</button>
+      <div id="toolMessage" class="msg"></div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
+    import {
+      getAuth,
+      signInWithEmailAndPassword,
+      signOut,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
+    import {
+      getFirestore,
+      collection,
+      doc,
+      getDocs,
+      query,
+      where,
+      writeBatch,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDY2SAXwWPxgFWaUHU7h1ARjwtgo16G2Yo",
+      authDomain: "emstest-e3ec1.firebaseapp.com",
+      projectId: "emstest-e3ec1",
+      storageBucket: "emstest-e3ec1.firebasestorage.app",
+      messagingSenderId: "887383383886",
+      appId: "1:887383383886:web:452e3a1e8f756119f7c81f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const BOOKED = "已預約";
+
+    document.getElementById("loginBtn").addEventListener("click", login);
+    document.getElementById("logoutBtn").addEventListener("click", () => signOut(auth));
+    document.getElementById("runBtn").addEventListener("click", runBackfill);
+
+    onAuthStateChanged(auth, user => {
+      document.getElementById("loginCard").classList.toggle("hidden", !!user);
+      document.getElementById("toolArea").classList.toggle("hidden", !user);
+      setToolMessage(user ? `已登入：${user.email}` : "");
+    });
+
+    async function login() {
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+      } catch (error) {
+        document.getElementById("loginMessage").textContent = error.message || "登入失敗。";
+      }
+    }
+
+    async function runBackfill() {
+      if (!confirm("確定要補建 bookingGroups 索引？\n\n請先確認已匯出 CSV 備份。")) return;
+      const runBtn = document.getElementById("runBtn");
+      runBtn.disabled = true;
+      setToolMessage("讀取已報名資料中...");
+      try {
+        const snapshot = await getDocs(query(collection(db, "slots"), where("status", "==", BOOKED)));
+        const groups = new Map();
+        const conflicts = [];
+
+        snapshot.docs.forEach(item => {
+          const slot = item.data();
+          const name1 = String(slot.name1 || "").trim();
+          const name2 = String(slot.name2 || "").trim();
+          if (!name1 || !name2) return;
+          const groupKey = buildGroupKey(name1, name2);
+          if (groups.has(groupKey)) {
+            conflicts.push(`${groupKey}：${groups.get(groupKey).slotId}、${item.id}`);
+            return;
+          }
+          groups.set(groupKey, {
+            groupKey,
+            name1,
+            name2,
+            slotId: item.id,
+            dateId: slot.dateId || "",
+            dateLabel: slot.dateLabel || "",
+            session: slot.session || "",
+            time: slot.time || ""
+          });
+        });
+
+        if (conflicts.length > 0) {
+          setToolMessage(`發現重複組別，已停止建立索引：\n${conflicts.join("\n")}`);
+          return;
+        }
+
+        let batch = writeBatch(db);
+        let pending = 0;
+        let created = 0;
+        for (const group of groups.values()) {
+          batch.set(doc(db, "bookingGroups", group.groupKey), {
+            ...group,
+            createdAt: serverTimestamp()
+          });
+          pending++;
+          created++;
+          if (pending === 450) {
+            await batch.commit();
+            batch = writeBatch(db);
+            pending = 0;
+          }
+        }
+        if (pending > 0) await batch.commit();
+        setToolMessage(`完成。\n已建立 bookingGroups：${created} 筆`);
+      } catch (error) {
+        setToolMessage(error.message || "補建索引失敗。");
+      } finally {
+        runBtn.disabled = false;
+      }
+    }
+
+    function buildGroupKey(name1, name2) {
+      return [String(name1 || "").trim(), String(name2 || "").trim()].sort().join("__");
+    }
+
+    function setToolMessage(text) {
+      document.getElementById("toolMessage").textContent = text;
+    }
+  </script>
+</body>
+</html>

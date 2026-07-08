@@ -1,0 +1,104 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function verifiedSignedIn() {
+      return signedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isBootstrapAdmin() {
+      return signedIn() && request.auth.token.email == 'cat110152@gmail.com';
+    }
+
+    function isApproved() {
+      return isBootstrapAdmin() || (
+        verifiedSignedIn() &&
+        exists(/databases/$(database)/documents/osimsUsers/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/osimsUsers/$(request.auth.uid)).data.status == 'approved'
+      );
+    }
+
+    function isAdmin() {
+      return isBootstrapAdmin() || (
+        isApproved() &&
+        get(/databases/$(database)/documents/osimsUsers/$(request.auth.uid)).data.role == 'admin'
+      );
+    }
+
+    function isBookingCreate() {
+      return resource.data.status == "可報名" &&
+        request.resource.data.status == "已預約" &&
+        request.resource.data.name1 is string &&
+        request.resource.data.name2 is string &&
+        request.resource.data.name1.size() > 0 &&
+        request.resource.data.name2.size() > 0 &&
+        request.resource.data.groupKey is string &&
+        request.resource.data.groupKey.size() > 0;
+    }
+
+    match /slots/{slotId} {
+      allow read: if true;
+      allow update: if isAdmin() || isBookingCreate();
+      allow create, delete: if isAdmin();
+    }
+
+    match /bookingGroups/{groupKey} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if request.resource.data.groupKey == groupKey &&
+        request.resource.data.slotId is string &&
+        request.resource.data.name1 is string &&
+        request.resource.data.name2 is string;
+      allow update, delete: if isAdmin();
+    }
+
+    match /cancelRequests/{requestId} {
+      allow read: if isAdmin();
+      allow create: if request.resource.data.status == "pending" &&
+        request.resource.data.slotId is string &&
+        request.resource.data.groupKey is string &&
+        request.resource.data.name1 is string &&
+        request.resource.data.name2 is string;
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    match /osimsUsers/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create: if signedIn() && request.auth.uid == uid &&
+        request.resource.data.email == request.auth.token.email &&
+        (
+          (isBootstrapAdmin() && request.resource.data.status == 'approved' && request.resource.data.role == 'admin') ||
+          (!isBootstrapAdmin() && request.auth.token.email_verified == true && request.resource.data.status == 'pending' && request.resource.data.role == 'user')
+        );
+      allow update: if isAdmin() || (
+        verifiedSignedIn() &&
+        request.auth.uid == uid &&
+        request.resource.data.status == resource.data.status &&
+        request.resource.data.role == resource.data.role &&
+        request.resource.data.email == resource.data.email
+      );
+      allow delete: if false;
+    }
+
+    match /osimsCases/{caseNo}/units/{unitId} {
+      allow read: if isApproved();
+      allow create, update: if isApproved() &&
+        request.resource.data.updatedBy == request.auth.uid &&
+        request.resource.data.updatedByEmail == request.auth.token.email;
+      allow delete: if false;
+    }
+
+    match /osimsCases/{caseNo}/audit/{auditId} {
+      allow read: if isApproved();
+      allow create: if isApproved() &&
+        request.resource.data.actorUid == request.auth.uid &&
+        request.resource.data.actorEmail == request.auth.token.email;
+      allow update, delete: if false;
+    }
+  }
+}
