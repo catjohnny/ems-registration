@@ -39,6 +39,12 @@
     .submit:disabled,.cancel-submit:disabled { background:#7d7769; cursor:wait; }
     .msg { display:block; min-height:22px; margin-top:8px; text-align:center; font-weight:900; line-height:1.45; }
     .msg.ok { color:var(--ok); } .msg.err { color:var(--danger); }
+    details.cancel-panel summary { cursor:pointer; font-size:16px; font-weight:900; list-style:none; }
+    details.cancel-panel summary::-webkit-details-marker { display:none; }
+    details.cancel-panel summary::after { content:"展開"; float:right; color:var(--muted); font-size:13px; }
+    details.cancel-panel[open] summary { margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid var(--line); }
+    details.cancel-panel[open] summary::after { content:"收合"; }
+    .cancel-persons { min-height:52px; margin-bottom:12px; padding:12px; border:1px solid var(--line); border-radius:8px; background:white; color:var(--muted); font-size:16px; font-weight:900; line-height:1.45; }
   </style>
 </head>
 <body>
@@ -47,7 +53,7 @@
     <section class="block"><p class="label">&#28204;&#39511;&#26085;&#26399;</p><div id="dateButtons" class="dates"></div></section>
     <section class="block"><p class="label">&#24050;&#36984;&#25799;&#28204;&#39511;&#26178;&#38291;</p><input id="selectedTime" class="chosen" type="text" readonly placeholder="&#35531;&#40670;&#36984;&#19979;&#26041;&#21487;&#22577;&#21517;&#26178;&#27573;"><div class="session-head">&#19978;&#21320;&#22580;&#27425; <span>09:00 - 12:00</span></div><div id="morningSlots" class="slots"></div><div class="session-head">&#19979;&#21320;&#22580;&#27425; <span>13:00 - 17:00</span></div><div id="afternoonSlots" class="slots"></div></section>
     <section class="block"><p class="label">&#21463;&#28204;&#20154;&#21729;&#22995;&#21517;1</p><input id="name1" type="text" placeholder="&#35531;&#36664;&#20837;&#22995;&#21517;"><p class="label">&#21463;&#28204;&#20154;&#21729;&#22995;&#21517;2</p><input id="name2" type="text" placeholder="&#35531;&#36664;&#20837;&#22995;&#21517;"></section>
-    <section class="block"><p class="label">申請取消報名</p><select id="cancelSlot"></select><p class="label">報名人員姓名1</p><input id="cancelName1" type="text" placeholder="請輸入姓名"><p class="label">報名人員姓名2</p><input id="cancelName2" type="text" placeholder="請輸入姓名"><button id="cancelRequestBtn" class="cancel-submit" onclick="submitCancelRequest()">送出取消申請</button><span id="cancelMessage" class="msg"></span></section>
+    <section class="block"><details class="cancel-panel"><summary>申請取消報名</summary><p class="label">日期</p><select id="cancelDate" onchange="renderCancelSessionSelector()"></select><p class="label">場次</p><select id="cancelSession" onchange="renderCancelTimeSelector()"></select><p class="label">時間</p><select id="cancelTime" onchange="renderCancelPersons()"></select><p class="label">目前報名組別</p><div id="cancelPersons" class="cancel-persons">請先選擇日期、場次與時間。</div><button id="cancelRequestBtn" class="cancel-submit" onclick="submitCancelRequest()">送出取消申請</button><span id="cancelMessage" class="msg"></span></details></section>
   </main>
   <div class="bottom"><div class="bottom-inner"><button id="submitBtn" class="submit" onclick="submitBooking()">&#36865;&#20986;&#22577;&#21517;</button><span id="message" class="msg"></span></div></div>
   <script type="module">
@@ -68,13 +74,13 @@
     const BOOKED = "已預約";
     const MORNING = "上午";
     const AFTERNOON = "下午";
-    window.submitBooking = submitBooking; window.submitCancelRequest = submitCancelRequest; window.selectDate = selectDate; window.selectSlot = selectSlot;
+    window.submitBooking = submitBooking; window.submitCancelRequest = submitCancelRequest; window.selectDate = selectDate; window.selectSlot = selectSlot; window.renderCancelSessionSelector = renderCancelSessionSelector; window.renderCancelTimeSelector = renderCancelTimeSelector; window.renderCancelPersons = renderCancelPersons;
     onSnapshot(collection(db,"slots"), snapshot => {
       allSlots = snapshot.docs.map(item => item.data()).sort((a,b) => a.dateId !== b.dateId ? a.dateId.localeCompare(b.dateId) : a.time.localeCompare(b.time));
       if (allSlots.length === 0) { setMessage("目前沒有可報名時段，請先建立時段資料。", "err"); return; }
       const dates = [...new Set(allSlots.map(slot => slot.dateLabel))];
       if (!selectedDate || !dates.includes(selectedDate)) selectedDate = dates[0];
-      renderDates(); renderSlots(); renderCancelSelector(); setMessage("", "");
+      renderDates(); renderSlots(); renderCancelDateSelector(); setMessage("", "");
     }, error => setMessage(error.message || "讀取資料失敗，請稍後再試。", "err"));
     function renderDates() {
       const dates = [...new Set(allSlots.map(slot => slot.dateLabel))];
@@ -82,10 +88,44 @@
     }
     function selectDate(date) { selectedDate = date; selectedSlotId = ""; document.getElementById("selectedTime").value = ""; renderDates(); renderSlots(); setMessage("", ""); }
     function renderSlots() { renderSlotGroup("morningSlots", MORNING); renderSlotGroup("afternoonSlots", AFTERNOON); }
-    function renderCancelSelector() {
-      const booked = allSlots.filter(slot => slot.status === BOOKED);
-      const select = document.getElementById("cancelSlot");
-      select.innerHTML = booked.map(slot => `<option value="${slot.slotId}">${slot.dateLabel} ${slot.session} ${slot.time} - ${escapeHtml(slot.name1 || "")}、${escapeHtml(slot.name2 || "")}</option>`).join("") || `<option value="">目前沒有已報名時段</option>`;
+    function getBookedSlots() {
+      return allSlots.filter(slot => slot.status === BOOKED);
+    }
+    function renderCancelDateSelector() {
+      const select = document.getElementById("cancelDate");
+      const current = select.value;
+      const dates = [...new Set(getBookedSlots().map(slot => slot.dateLabel))];
+      select.innerHTML = dates.map(date => `<option value="${escapeHtml(date)}">${escapeHtml(date)}</option>`).join("") || `<option value="">目前沒有已報名時段</option>`;
+      if (current && dates.includes(current)) select.value = current;
+      renderCancelSessionSelector();
+    }
+    function renderCancelSessionSelector() {
+      const date = document.getElementById("cancelDate").value;
+      const select = document.getElementById("cancelSession");
+      const current = select.value;
+      const sessions = [...new Set(getBookedSlots().filter(slot => slot.dateLabel === date).map(slot => slot.session))];
+      select.innerHTML = sessions.map(session => `<option value="${escapeHtml(session)}">${escapeHtml(session)}</option>`).join("") || `<option value="">請先選擇日期</option>`;
+      if (current && sessions.includes(current)) select.value = current;
+      renderCancelTimeSelector();
+    }
+    function renderCancelTimeSelector() {
+      const date = document.getElementById("cancelDate").value;
+      const session = document.getElementById("cancelSession").value;
+      const select = document.getElementById("cancelTime");
+      const current = select.value;
+      const slots = getBookedSlots().filter(slot => slot.dateLabel === date && slot.session === session);
+      select.innerHTML = slots.map(slot => `<option value="${slot.slotId}">${escapeHtml(slot.time || "")}</option>`).join("") || `<option value="">請先選擇場次</option>`;
+      if (current && slots.some(slot => slot.slotId === current)) select.value = current;
+      renderCancelPersons();
+    }
+    function renderCancelPersons() {
+      const slot = getSelectedCancelSlot();
+      const persons = document.getElementById("cancelPersons");
+      if (!slot) {
+        persons.textContent = "此條件目前沒有已報名組別。";
+        return;
+      }
+      persons.textContent = `${slot.name1 || ""}、${slot.name2 || ""}`;
     }
     function bookedLabel(slot) {
       const names = [slot.name1, slot.name2].filter(Boolean).join("、");
@@ -145,19 +185,14 @@
       } catch (error) { setMessage(error.message || "報名失敗，請重新選擇時段。", "err"); } finally { submitBtn.disabled = false; }
     }
     async function submitCancelRequest() {
-      const slotId = document.getElementById("cancelSlot").value;
-      const name1 = document.getElementById("cancelName1").value.trim();
-      const name2 = document.getElementById("cancelName2").value.trim();
+      const slot = getSelectedCancelSlot();
       const cancelBtn = document.getElementById("cancelRequestBtn");
-      if (!slotId) return setCancelMessage("請先選擇要取消的報名時段。", "err");
-      if (!name1 || !name2) return setCancelMessage("請填寫兩位報名人員姓名。", "err");
-      if (name1 === name2) return setCancelMessage("兩位報名人員姓名不可相同。", "err");
-      const slot = allSlots.find(item => item.slotId === slotId);
-      if (!slot) return setCancelMessage("找不到所選時段，請重新整理頁面。", "err");
+      if (!slot) return setCancelMessage("請先選擇已報名時段。", "err");
+      const slotId = slot.slotId;
+      const name1 = String(slot.name1 || "").trim();
+      const name2 = String(slot.name2 || "").trim();
+      if (!name1 || !name2) return setCancelMessage("此時段缺少報名姓名，請聯絡管理者確認。", "err");
       const groupKey = buildGroupKey(name1, name2);
-      if (slot.status !== BOOKED || buildGroupKey(slot.name1 || "", slot.name2 || "") !== groupKey) {
-        return setCancelMessage("姓名與該時段報名資料不符，請確認後再送出。", "err");
-      }
       if (!confirm(`確定要送出取消申請？\n\n${slot.dateLabel} ${slot.session} ${slot.time}\n${name1}、${name2}\n\n送出後需由管理者審核。`)) return;
 
       cancelBtn.disabled = true;
@@ -187,8 +222,6 @@
             reviewedByEmail: ""
           });
         });
-        document.getElementById("cancelName1").value = "";
-        document.getElementById("cancelName2").value = "";
         setCancelMessage("取消申請已送出，請等待管理者審核。", "ok");
       } catch (error) {
         setCancelMessage(error.message || "取消申請送出失敗。", "err");
@@ -198,6 +231,10 @@
     }
     function buildGroupKey(name1, name2) {
       return [String(name1 || "").trim(), String(name2 || "").trim()].sort().join("__");
+    }
+    function getSelectedCancelSlot() {
+      const slotId = document.getElementById("cancelTime").value;
+      return getBookedSlots().find(item => item.slotId === slotId);
     }
     function escapeHtml(value) {
       return String(value)
