@@ -395,17 +395,34 @@
     function renderCancelRequests() {
       const list = document.getElementById("cancelRequestList");
       if (!list) return;
-      const pending = allCancelRequests.filter(item => item.status === "pending");
-      list.innerHTML = pending.map(item => {
+      const groups = [];
+      const groupMap = new Map();
+
+      allCancelRequests.filter(item => item.status === "pending").forEach(item => {
+        const key = getCancelRequestKey(item);
+        let group = groupMap.get(key);
+        if (!group) {
+          group = { item, requests: [] };
+          groupMap.set(key, group);
+          groups.push(group);
+        }
+        group.requests.push(item);
+      });
+
+      list.innerHTML = groups.map(group => {
+        const item = group.item;
         const slot = allSlots.find(current => current.slotId === item.slotId);
         const slotText = slot ? `${slot.status} - ${escapeHtml(slot.name1 || "")}、${escapeHtml(slot.name2 || "")}` : "找不到目前時段資料";
+        const duplicateText = group.requests.length > 1
+          ? `<br>重複送出：${group.requests.length} 次（本次將一併審核）`
+          : "";
         return `
           <article class="slot-item">
             <div class="slot-top">
               <span>${escapeHtml(item.dateLabel || "")} ${escapeHtml(item.session || "")} ${escapeHtml(item.time || "")}</span>
               <span>待審核</span>
             </div>
-            <div class="names">申請取消：${escapeHtml(item.name1 || "")}、${escapeHtml(item.name2 || "")}<br>目前狀態：${slotText}</div>
+            <div class="names">申請取消：${escapeHtml(item.name1 || "")}、${escapeHtml(item.name2 || "")}<br>目前狀態：${slotText}${duplicateText}</div>
             <div class="actions">
               <button class="secondary" onclick="approveCancelRequest('${item.requestId}')">同意取消並釋出</button>
               <button class="danger" onclick="rejectCancelRequest('${item.requestId}')">拒絕取消</button>
@@ -574,39 +591,64 @@
     async function approveCancelRequest(requestId) {
       const request = allCancelRequests.find(item => item.requestId === requestId);
       if (!request) return;
-      if (!confirm(`確定同意取消並釋出時段？\n\n${request.dateLabel} ${request.session} ${request.time}\n${request.name1}、${request.name2}`)) return;
+      const relatedRequests = getRelatedPendingCancelRequests(request);
+      const duplicateNotice = relatedRequests.length > 1 ? `\n\n另有 ${relatedRequests.length - 1} 筆相同申請，將一併完成審核。` : "";
+      if (!confirm(`確定同意取消並釋出時段？\n\n${request.dateLabel} ${request.session} ${request.time}\n${request.name1}、${request.name2}${duplicateNotice}`)) return;
 
       try {
-        await runTransaction(db, async transaction => {
-          const requestRef = doc(db, "cancelRequests", requestId);
+        const result = await runTransaction(db, async transaction => {
           const slotRef = doc(db, "slots", request.slotId);
-          const requestDoc = await transaction.get(requestRef);
           const slotDoc = await transaction.get(slotRef);
-          if (!requestDoc.exists()) throw new Error("找不到取消申請。");
           if (!slotDoc.exists()) throw new Error("找不到時段資料。");
-          const currentRequest = requestDoc.data();
+          const requestRefs = relatedRequests.map(item => doc(db, "cancelRequests", item.requestId));
+          const requestDocs = [];
+          for (const requestRef of requestRefs) {
+            requestDocs.push(await transaction.get(requestRef));
+          }
+
+          const groupKey = getCancelRequestGroupKey(request);
           const currentSlot = slotDoc.data();
-          if (currentRequest.status !== "pending") throw new Error("此申請已審核，不能重複處理。");
-          if (currentSlot.status !== BOOKED) throw new Error("此時段目前不是已報名狀態，無法同意取消。");
-          const groupKey = currentRequest.groupKey || buildGroupKey(currentRequest.name1 || "", currentRequest.name2 || "");
-          if (buildGroupKey(currentSlot.name1 || "", currentSlot.name2 || "") !== groupKey) throw new Error("目前時段姓名已變更，請重新確認。");
+          const currentSlotGroupKey = currentSlot.groupKey || buildGroupKey(currentSlot.name1 || "", currentSlot.name2 || "");
+          const matchingPending = requestDocs.filter(item => item.exists() && item.data().status === "pending" && getCancelRequestKey({ requestId: item.id, ...item.data() }) === getCancelRequestKey(request));
+          if (matchingPending.length === 0) throw new Error("此申請已審核，不能重複處理。");
+          if (currentSlot.status === BOOKED && currentSlotGroupKey !== groupKey) throw new Error("目前時段已是其他組別，為避免誤刪新報名，請重新確認。");
+          if (currentSlot.status !== BOOKED && currentSlot.status !== AVAILABLE) throw new Error("目前時段狀態異常，無法完成審核。");
+
           const user = auth.currentUser;
-          transaction.update(slotRef, {
-            status: AVAILABLE,
-            name1: "",
-            name2: "",
-            groupKey: "",
-            bookedAt: null
+          const releaseResult = currentSlot.status === BOOKED ? "released" : "already_available";
+
+          if (currentSlot.status === BOOKED) {
+            transaction.update(slotRef, {
+              status: AVAILABLE,
+              name1: "",
+              name2: "",
+              groupKey: "",
+              bookedAt: null
+            });
+            if (groupKey) transaction.delete(doc(db, "bookingGroups", groupKey));
+          }
+
+          matchingPending.forEach(item => {
+            transaction.update(item.ref, {
+              status: "approved",
+              resolution: releaseResult,
+              reviewedAt: serverTimestamp(),
+              reviewedBy: user ? user.uid : "",
+              reviewedByEmail: user ? user.email : ""
+            });
           });
-          transaction.delete(doc(db, "bookingGroups", groupKey));
-          transaction.update(requestRef, {
-            status: "approved",
-            reviewedAt: serverTimestamp(),
-            reviewedBy: user ? user.uid : "",
-            reviewedByEmail: user ? user.email : ""
-          });
+
+          return {
+            releaseResult,
+            reviewedCount: matchingPending.length
+          };
         });
-        setAdminMessage("已同意取消並釋出時段。", "ok");
+        setAdminMessage(
+          result.releaseResult === "released"
+            ? `已同意取消並釋出時段，共完成 ${result.reviewedCount} 筆相同申請。`
+            : `時段原已釋出，共完成 ${result.reviewedCount} 筆遺留申請。`,
+          "ok"
+        );
       } catch (error) {
         setAdminMessage(error.message || "審核失敗。", "err");
       }
@@ -615,23 +657,35 @@
     async function rejectCancelRequest(requestId) {
       const request = allCancelRequests.find(item => item.requestId === requestId);
       if (!request) return;
-      if (!confirm(`確定拒絕此取消申請？\n\n${request.dateLabel} ${request.session} ${request.time}\n${request.name1}、${request.name2}`)) return;
+      const relatedRequests = getRelatedPendingCancelRequests(request);
+      const duplicateNotice = relatedRequests.length > 1 ? `\n\n另有 ${relatedRequests.length - 1} 筆相同申請，將一併拒絕。` : "";
+      if (!confirm(`確定拒絕此取消申請？\n\n${request.dateLabel} ${request.session} ${request.time}\n${request.name1}、${request.name2}${duplicateNotice}`)) return;
 
       try {
-        await runTransaction(db, async transaction => {
-          const requestRef = doc(db, "cancelRequests", requestId);
-          const requestDoc = await transaction.get(requestRef);
-          if (!requestDoc.exists()) throw new Error("找不到取消申請。");
-          if (requestDoc.data().status !== "pending") throw new Error("此申請已審核，不能重複處理。");
+        const reviewedCount = await runTransaction(db, async transaction => {
+          const requestRefs = relatedRequests.map(item => doc(db, "cancelRequests", item.requestId));
+          const requestDocs = [];
+          for (const requestRef of requestRefs) {
+            requestDocs.push(await transaction.get(requestRef));
+          }
+
+          const matchingPending = requestDocs.filter(item => item.exists() && item.data().status === "pending" && getCancelRequestKey({ requestId: item.id, ...item.data() }) === getCancelRequestKey(request));
+          if (matchingPending.length === 0) throw new Error("此申請已審核，不能重複處理。");
           const user = auth.currentUser;
-          transaction.update(requestRef, {
-            status: "rejected",
-            reviewedAt: serverTimestamp(),
-            reviewedBy: user ? user.uid : "",
-            reviewedByEmail: user ? user.email : ""
+
+          matchingPending.forEach(item => {
+            transaction.update(item.ref, {
+              status: "rejected",
+              resolution: "rejected",
+              reviewedAt: serverTimestamp(),
+              reviewedBy: user ? user.uid : "",
+              reviewedByEmail: user ? user.email : ""
+            });
           });
+
+          return matchingPending.length;
         });
-        setAdminMessage("已拒絕取消申請。", "ok");
+        setAdminMessage(`已拒絕取消申請，共完成 ${reviewedCount} 筆相同申請。`, "ok");
       } catch (error) {
         setAdminMessage(error.message || "審核失敗。", "err");
       }
@@ -685,6 +739,19 @@
 
     function buildGroupKey(name1, name2) {
       return [String(name1 || "").trim(), String(name2 || "").trim()].sort().join("__");
+    }
+
+    function getCancelRequestGroupKey(request) {
+      return request.groupKey || buildGroupKey(request.name1 || "", request.name2 || "");
+    }
+
+    function getCancelRequestKey(request) {
+      return `${request.slotId || ""}::${getCancelRequestGroupKey(request)}`;
+    }
+
+    function getRelatedPendingCancelRequests(request) {
+      const key = getCancelRequestKey(request);
+      return allCancelRequests.filter(item => item.status === "pending" && getCancelRequestKey(item) === key);
     }
 
     function escapeHtml(value) {
