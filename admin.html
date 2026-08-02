@@ -90,6 +90,11 @@
       cursor: pointer;
     }
 
+    button:disabled {
+      cursor: wait;
+      opacity: 0.65;
+    }
+
     .primary {
       width: 100%;
       background: var(--black);
@@ -122,6 +127,10 @@
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
+    }
+
+    .export-actions {
+      margin-top: 10px;
     }
 
     .msg {
@@ -210,7 +219,10 @@
         </div>
         <button class="ghost" onclick="location.href='index.html'">回到報名網頁</button>
         <button class="ghost" onclick="logout()">&#30331;&#20986;&#31649;&#29702;&#38913;</button>
-        <button class="primary" onclick="exportCsv()" style="margin-top:10px;">&#21295;&#20986; CSV</button>
+        <div class="actions export-actions">
+          <button class="primary" onclick="exportCsv()">匯出全部 CSV</button>
+          <button id="attendanceExportBtn" class="secondary" onclick="exportDailyAttendance()">產出當日簽到表</button>
+        </div>
         <div id="adminMessage" class="msg"></div>
       </section>
 
@@ -270,6 +282,7 @@
     let unsubscribeSlots = null;
     let allCancelRequests = [];
     let unsubscribeCancelRequests = null;
+    let excelJsPromise = null;
 
     window.login = login;
     window.logout = logout;
@@ -280,6 +293,7 @@
     window.saveNames = saveNames;
     window.moveBooking = moveBooking;
     window.exportCsv = exportCsv;
+    window.exportDailyAttendance = exportDailyAttendance;
 
     onAuthStateChanged(auth, user => {
       document.getElementById("loginCard").classList.toggle("hidden", !!user);
@@ -731,6 +745,203 @@
       link.click();
       URL.revokeObjectURL(url);
       setAdminMessage("CSV \u5df2\u532f\u51fa\u3002", "ok");
+    }
+
+    async function exportDailyAttendance() {
+      const dateLabel = document.getElementById("dateFilter").value;
+      const button = document.getElementById("attendanceExportBtn");
+      const bookedSlots = allSlots
+        .filter(slot => slot.dateLabel === dateLabel && slot.status === BOOKED)
+        .sort(compareAttendanceSlots);
+
+      if (!dateLabel) {
+        setAdminMessage("請先選擇簽到表日期。", "err");
+        return;
+      }
+      if (bookedSlots.length === 0) {
+        setAdminMessage(`${dateLabel} 目前沒有已預約時段，無法產出簽到表。`, "err");
+        return;
+      }
+
+      button.disabled = true;
+      setAdminMessage("正在產出當日簽到表...", "");
+
+      try {
+        const ExcelJS = await loadExcelJs();
+        const workbook = createAttendanceWorkbook(ExcelJS, dateLabel, bookedSlots);
+        const buffer = await workbook.xlsx.writeBuffer();
+        const filenameDate = sanitizeFilename(dateLabel);
+        downloadBlob(
+          new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
+          `115年度第四大隊救護技術普測_${filenameDate}簽到表.xlsx`
+        );
+        setAdminMessage(`${dateLabel} 簽到表已產出，共 ${bookedSlots.length} 個時段。`, "ok");
+      } catch (error) {
+        console.error(error);
+        setAdminMessage(error.message || "簽到表產出失敗，請重新整理後再試一次。", "err");
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    function createAttendanceWorkbook(ExcelJS, dateLabel, bookedSlots) {
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = "第四大隊救護技術普測報名系統";
+      workbook.created = new Date();
+      workbook.modified = new Date();
+
+      const worksheet = workbook.addWorksheet(sanitizeSheetName(`${dateLabel}簽到表`), {
+        properties: { defaultRowHeight: 30 },
+        pageSetup: {
+          paperSize: 9,
+          orientation: "landscape",
+          fitToPage: true,
+          fitToWidth: 1,
+          fitToHeight: 0,
+          horizontalCentered: true,
+          margins: {
+            left: 0.25,
+            right: 0.25,
+            top: 0.45,
+            bottom: 0.45,
+            header: 0.2,
+            footer: 0.2
+          }
+        },
+        views: [{ state: "frozen", ySplit: 2, showGridLines: false }]
+      });
+
+      worksheet.columns = [
+        { key: "number", width: 7 },
+        { key: "date", width: 12 },
+        { key: "session", width: 9 },
+        { key: "time", width: 10 },
+        { key: "name1", width: 15 },
+        { key: "name2", width: 15 },
+        { key: "signature1", width: 25 },
+        { key: "signature2", width: 25 },
+        { key: "blank", width: 13 }
+      ];
+
+      worksheet.mergeCells("A1:I1");
+      const titleCell = worksheet.getCell("A1");
+      titleCell.value = `115年度第四大隊救護技術普測簽到表（${dateLabel}）`;
+      titleCell.font = { name: "Microsoft JhengHei", size: 18, bold: true };
+      titleCell.alignment = { horizontal: "center", vertical: "middle" };
+      worksheet.getRow(1).height = 34;
+
+      const headerRow = worksheet.addRow([
+        "項次",
+        "日期",
+        "場次",
+        "時間",
+        "受測人員姓名1",
+        "受測人員姓名2",
+        "簽到1",
+        "簽到2",
+        ""
+      ]);
+      headerRow.height = 30;
+
+      bookedSlots.forEach((slot, index) => {
+        const row = worksheet.addRow([
+          index + 1,
+          slot.dateLabel || dateLabel,
+          slot.session || "",
+          slot.time || "",
+          slot.name1 || "",
+          slot.name2 || "",
+          "",
+          "",
+          ""
+        ]);
+        row.height = 34;
+      });
+
+      const lastRow = worksheet.rowCount;
+      const border = {
+        top: { style: "thin", color: { argb: "FF000000" } },
+        left: { style: "thin", color: { argb: "FF000000" } },
+        bottom: { style: "thin", color: { argb: "FF000000" } },
+        right: { style: "thin", color: { argb: "FF000000" } }
+      };
+
+      for (let columnNumber = 1; columnNumber <= 9; columnNumber++) {
+        const cell = headerRow.getCell(columnNumber);
+        cell.font = { name: "Microsoft JhengHei", size: 11, bold: true };
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE7E6E6" } };
+        cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+        cell.border = border;
+      }
+
+      for (let rowNumber = 3; rowNumber <= lastRow; rowNumber++) {
+        const row = worksheet.getRow(rowNumber);
+        for (let columnNumber = 1; columnNumber <= 9; columnNumber++) {
+          const cell = row.getCell(columnNumber);
+          cell.font = { name: "Microsoft JhengHei", size: 12 };
+          cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+          cell.border = border;
+        }
+      }
+
+      worksheet.pageSetup.printArea = `A1:I${lastRow}`;
+      worksheet.pageSetup.printTitlesRow = "1:2";
+      worksheet.headerFooter.oddFooter = "&C第 &P 頁，共 &N 頁";
+      worksheet.headerFooter.evenFooter = "&C第 &P 頁，共 &N 頁";
+      worksheet.getColumn(1).numFmt = "0";
+
+      return workbook;
+    }
+
+    function compareAttendanceSlots(a, b) {
+      const sessionOrder = { "上午": 0, "下午": 1 };
+      const sessionDifference = (sessionOrder[a.session] ?? 9) - (sessionOrder[b.session] ?? 9);
+      if (sessionDifference !== 0) return sessionDifference;
+      return String(a.time || "").localeCompare(String(b.time || ""), "zh-Hant", { numeric: true });
+    }
+
+    function loadExcelJs() {
+      if (window.ExcelJS) return Promise.resolve(window.ExcelJS);
+      if (excelJsPromise) return excelJsPromise;
+
+      excelJsPromise = new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = "https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js";
+        script.onload = () => {
+          if (window.ExcelJS) {
+            resolve(window.ExcelJS);
+          } else {
+            excelJsPromise = null;
+            reject(new Error("簽到表元件載入不完整，請重新整理後再試一次。"));
+          }
+        };
+        script.onerror = () => {
+          excelJsPromise = null;
+          reject(new Error("無法載入簽到表元件，請確認網路連線後再試一次。"));
+        };
+        document.head.appendChild(script);
+      });
+
+      return excelJsPromise;
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function sanitizeFilename(value) {
+      return String(value || "").replace(/[\\/:*?"<>|]/g, "-");
+    }
+
+    function sanitizeSheetName(value) {
+      return String(value || "簽到表").replace(/[\\/*?:\[\]]/g, "-").slice(0, 31);
     }
 
     function safeId(value) {
